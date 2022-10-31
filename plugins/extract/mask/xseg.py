@@ -76,8 +76,9 @@ class FRNorm2D():
 class ConvBlock():
     def __init__(self, in_ch, out_ch):              
         self.conv = Conv2D (in_ch, out_ch, kernel_size=3, padding='SAME')
-        self.frn = FRNorm2d(out_ch)
-        self.tlu = nn.TLU(out_ch)
+        #self.frn = FRNorm2D(out_ch)
+        self.frn = tfa.layers.FilterResponseNormalization(axis = list(range(1, out_ch+1)))
+        self.tlu = tfa.layers.TLU()
 
     def __call__(self, x):                
         x = self.conv(x)
@@ -88,8 +89,9 @@ class ConvBlock():
 class UpConvBlock():
     def __init__(self, in_ch, out_ch):
         self.conv = Conv2DTranspose (in_ch, out_ch, kernel_size=3, padding='SAME')
-        self.frn = FRNorm2D(out_ch)
-        self.tlu = nn.TLU(out_ch)
+        #self.frn = FRNorm2D(out_ch)
+        self.frn = tfa.layers.FilterResponseNormalization(axis = list(range(1, out_ch+1)))
+        self.tlu = tfa.layers.TLU()
 
     def __call__(self, x):
         x = self.conv(x)
