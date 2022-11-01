@@ -80,12 +80,12 @@ class FRNorm2D(Layer):
         self.eps = Variable(
             initial_value=keras.initializers.Constant(1e-6)(shape=(1,)), dtype="float32", trainable=True
         )
-    
+
     def __call__(self, x):
-        shape = (1, self.in_ch, 1, 1)
+        shape = (1, 1, 1, self.in_ch)
         weight       = K.reshape ( self.weight, shape )
         bias         = K.reshape ( self.bias  , shape )
-        nu2 = tf.math.reduce_mean(K.square(x), axis=[2,3], keepdims=True)
+        nu2 = tf.math.reduce_mean(K.square(x), axis=[1,2], keepdims=True)
         x = x * ( 1.0/K.sqrt(nu2 + K.abs(self.eps) ) )
 
         return x*weight + bias
@@ -117,12 +117,12 @@ class UpConvBlock(Layer):
 class BlurPool(Layer):
     def __init__(self, filt_size=3, stride=2, **kwargs ):
 
-        self.strides = [1,1,stride,stride]
+        self.strides = (stride,stride)
 
         self.filt_size = filt_size
         pad = [ int(1.*(filt_size-1)/2), int(np.ceil(1.*(filt_size-1)/2)) ]
 
-        self.padding = [ [0,0], [0,0], pad, pad ]
+        self.padding = [ pad, pad ]
 
         if(self.filt_size==1):
             a = np.array([1.,])
