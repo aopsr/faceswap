@@ -19,9 +19,12 @@ else:
     # Ignore linting errors from Tensorflow's thoroughly broken import system
     from tensorflow.keras.layers import (  # pylint:disable=no-name-in-module,import-error
         Add, Conv2D, Conv2DTranspose, Cropping2D, Dropout, Input, Lambda, MaxPooling2D,
-        ZeroPadding2D, Concatenate, Flatten, Reshape, Dense)
+        ZeroPadding2D, Concatenate, Flatten, Reshape, Dense, Layer)
     from tensorflow.keras import backend as K
     import tensorflow_addons as tfa
+    from tensorflow import keras
+    from tensorflow import Variable
+    import tensorflow as tf
 
 
 class Mask(Masker):
@@ -64,23 +67,33 @@ class Mask(Masker):
         """ Compile found faces for output """
         return batch
 
-class FRNorm2D():
+class FRNorm2D(Layer):
     def __init__(self, in_ch):
         self.in_ch = in_ch
+        super(FRNorm2D, self).__init__()
+        self.weight = Variable(
+            initial_value=keras.initializers.Ones()(shape=(in_ch,)), dtype="float32", trainable=True
+        )
+        self.bias = Variable(
+            initial_value=keras.initializers.Zeros()(shape=(in_ch,)), dtype="float32", trainable=True
+        )
+        self.eps = Variable(
+            initial_value=keras.initializers.Constant(1e-6)(shape=(1,)), dtype="float32", trainable=True
+        )
     
     def __call__(self, x):
-        weight       = tf.reshape ( self.weight, shape )
-        bias         = tf.reshape ( self.bias  , shape )
-        nu2 = tf.reduce_mean(tf.square(x), axis=nn.conv2d_spatial_axes, keepdims=True)
-        x = x * ( 1.0/tf.sqrt(nu2 + tf.abs(self.eps) ) )
+        shape = (1, self.in_ch, 1, 1)
+        weight       = K.reshape ( self.weight, shape )
+        bias         = K.reshape ( self.bias  , shape )
+        nu2 = tf.math.reduce_mean(K.square(x), axis=[2,3], keepdims=True)
+        x = x * ( 1.0/K.sqrt(nu2 + K.abs(self.eps) ) )
 
         return x*weight + bias
 
-class ConvBlock():
+class ConvBlock(Layer):
     def __init__(self, in_ch, out_ch):              
         self.conv = Conv2D (out_ch, kernel_size=3, padding='same')
-        #self.frn = FRNorm2D(out_ch)
-        self.frn = tfa.layers.FilterResponseNormalization(axis = list(range(1, out_ch+1)))
+        self.frn = FRNorm2D(out_ch)
         self.tlu = tfa.layers.TLU()
 
     def __call__(self, x):                
@@ -89,11 +102,10 @@ class ConvBlock():
         x = self.tlu(x)
         return x
 
-class UpConvBlock():
+class UpConvBlock(Layer):
     def __init__(self, in_ch, out_ch):
         self.conv = Conv2DTranspose (out_ch, kernel_size=3, padding='same')
-        #self.frn = FRNorm2D(out_ch)
-        self.frn = tfa.layers.FilterResponseNormalization(axis = list(range(1, out_ch+1)))
+        self.frn = FRNorm2D(out_ch)
         self.tlu = tfa.layers.TLU()
 
     def __call__(self, x):
@@ -102,7 +114,7 @@ class UpConvBlock():
         x = self.tlu(x)
         return x
 
-class BlurPool():
+class BlurPool(Layer):
     def __init__(self, filt_size=3, stride=2, **kwargs ):
 
         self.strides = [1,1,stride,stride]
@@ -225,10 +237,10 @@ class Xseg(KSession):
         conv52 = ConvBlock(base_ch*8, base_ch*8)
         conv53 = ConvBlock(base_ch*8, base_ch*8)
         bp5 = BlurPool (filt_size=2)
-        
-        dense1 = Dense(4*4* base_ch*8, 512)
-        dense2 = Dense(512, 4*4* base_ch*8)
-                
+
+        dense1 = Dense(512, input_shape=(4*4*base_ch*8,))
+        dense2 = Dense(4*4* base_ch*8, input_shape=(512,))
+
         up5 = UpConvBlock (base_ch*8, base_ch*4)
         uconv53 = ConvBlock(base_ch*12, base_ch*8)
         uconv52 = ConvBlock(base_ch*8, base_ch*8)
@@ -255,9 +267,9 @@ class Xseg(KSession):
         up0 = UpConvBlock (base_ch*2, base_ch)
         uconv02 = ConvBlock(base_ch*2, base_ch)
         uconv01 = ConvBlock(base_ch, base_ch)
-        out_conv = Conv2D(base_ch, out_ch, kernel_size=3, padding='same')
+        out_conv = Conv2D(out_ch, kernel_size=3, padding='same')
 
-        x = conv01(x)
+        x = conv01(input_)
         x = x0 = conv02(x)
         x = bp0(x)
 
