@@ -38,7 +38,7 @@ class Mask(Masker):
         self.model = Xseg(self.model_path,
                               allow_growth=self.config["allow_growth"],
                               exclude_gpus=self._exclude_gpus)
-        self.model.append_softmax_activation(layer_index=-1)
+        #self.model.append_softmax_activation(layer_index=-1)
         placeholder = np.zeros((self.batchsize, self.input_size, self.input_size, 3),
                                dtype="float32")
         self.model.predict(placeholder)
@@ -127,12 +127,11 @@ class BlurPool():
         a = a[:,None]*a[None,:]
         a = a / np.sum(a)
         a = a[:,:,None,None]
-        self.a = a
-        self.k = K.constant(k, dtype=K.floatx())
+        self.k = K.constant(a, dtype=K.floatx())
         super().__init__(**kwargs)
 
     def __call__(self, x):
-        k = K.tile (self.k, (1,1,x.shape[nn.conv2d_ch_axis],1) )
+        k = K.tile (self.k, (1,1,x.shape[1],1) )
         x = K.spatial_2d_padding(x, padding=self.padding)
         x = K.depthwise_conv2d(x, k, strides=self.strides, padding='valid')
         return x
@@ -191,8 +190,8 @@ class Xseg(KSession):
         conv53 = ConvBlock(base_ch*8, base_ch*8)
         bp5 = BlurPool (filt_size=2)
         
-        dense1 = Dense (4*4* base_ch*8, 512)
-        dense2 = Dense (512, 4*4* base_ch*8)
+        dense1 = Dense(4*4* base_ch*8, 512)
+        dense2 = Dense(512, 4*4* base_ch*8)
                 
         up5 = UpConvBlock (base_ch*8, base_ch*4)
         uconv53 = ConvBlock(base_ch*12, base_ch*8)
@@ -282,7 +281,4 @@ class Xseg(KSession):
         x = uconv01(x)
 
         logits = out_conv(x)
-        return logits, K.sigmoid(logits)
-
-        
-        return input_, var_x
+        return input_, K.sigmoid(logits)
