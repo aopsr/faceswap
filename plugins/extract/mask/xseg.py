@@ -19,7 +19,7 @@ else:
     # Ignore linting errors from Tensorflow's thoroughly broken import system
     from tensorflow.keras.layers import (  # pylint:disable=no-name-in-module,import-error
         Add, Conv2D, Conv2DTranspose, Cropping2D, Dropout, Input, Lambda, MaxPooling2D,
-        ZeroPadding2D, Concatenate, Flatten, Reshape, Dense, Layer)
+        ZeroPadding2D, Concatenate, Flatten, Reshape, Dense, Layer, Permute)
     from tensorflow.keras import backend as K
     import tensorflow_addons as tfa
     from tensorflow import keras
@@ -146,7 +146,7 @@ class BlurPool(Layer):
         super().__init__(**kwargs)
 
     def __call__(self, x):
-        k = K.tile (self.k, (1,1,x.shape[1],1) )
+        k = K.tile (self.k, (1,1,x.shape[3],1) )
         x = K.spatial_2d_padding(x, padding=self.padding)
         x = K.depthwise_conv2d(x, k, strides=self.strides, padding='valid')
         return x
@@ -269,6 +269,8 @@ class Xseg(KSession):
         uconv01 = ConvBlock(base_ch, base_ch)
         out_conv = Conv2D(out_ch, kernel_size=3, padding='same')
 
+        concat = Concatenate(axis=3)
+
         x = conv01(input_)
         x = x0 = conv02(x)
         x = bp0(x)
@@ -299,33 +301,34 @@ class Xseg(KSession):
         x = Flatten()(x)
         x = dense1(x)
         x = dense2(x)
-        x = Reshape(x, 4, 4, base_ch*8)(x)
-                          
+        x = Reshape((base_ch*8, 4, 4))(x)
+        x = Permute((2, 3, 1))(x)
+
         x = up5(x)
-        x = uconv53(Concatenate()([x, x5]))
+        x = uconv53(concat([x, x5]))
         x = uconv52(x)
         x = uconv51(x)
         
         x = up4(x)
-        x = uconv43(Concatenate()([x, x4]))
+        x = uconv43(concat([x, x4]))
         x = uconv42(x)
         x = uconv41(x)
 
         x = up3(x)
-        x = uconv33(Concatenate()([x, x3]))
+        x = uconv33(concat([x, x3]))
         x = uconv32(x)
         x = uconv31(x)
 
         x = up2(x)
-        x = uconv22(Concatenate()([x, x2]))
+        x = uconv22(concat([x, x2]))
         x = uconv21(x)
 
         x = up1(x)
-        x = uconv12(Concatenate()([x, x1]))
+        x = uconv12(concat([x, x1]))
         x = uconv11(x)
 
         x = up0(x)
-        x = uconv02(Concatenate()([x, x0]))
+        x = uconv02(concat([x, x0]))
         x = uconv01(x)
 
         logits = out_conv(x)
