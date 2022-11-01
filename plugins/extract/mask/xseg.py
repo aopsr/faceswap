@@ -30,7 +30,7 @@ else:
 class Mask(Masker):
     """ Neural network to process face image into a segmentation mask of the face """
     def __init__(self, **kwargs):
-        model_filename = "XSeg_256"
+        model_filename = "XSeg_256.npy"
         super().__init__(**kwargs)
         self.model_path = model_filename
         self.name = "Xseg"
@@ -67,22 +67,31 @@ class Mask(Masker):
     def process_output(self, batch):
         """ Compile found faces for output """
         return batch
-
+    
 class FRNorm2D(Layer):
-    def __init__(self, in_ch):
+    def __init__(self, in_ch, **kwargs):
+        super().__init__(**kwargs)
         self.in_ch = in_ch
-        super(FRNorm2D, self).__init__()
-        self.weight = Variable(
-            initial_value=keras.initializers.Ones()(shape=(in_ch,)), dtype="float32", trainable=True
-        )
-        self.bias = Variable(
-            initial_value=keras.initializers.Zeros()(shape=(in_ch,)), dtype="float32", trainable=True
-        )
-        self.eps = Variable(
-            initial_value=keras.initializers.Constant(1e-6)(shape=(1,)), dtype="float32", trainable=True
-        )
 
-    def __call__(self, x):
+    def build(self, input_shape):
+        self.weight = self.add_weight(
+            shape=(self.in_ch,),
+            name="weight",
+            initializer=keras.initializers.Ones()
+        )
+        self.bias = self.add_weight(
+            shape=(self.in_ch,),
+            name="bias",
+            initializer=keras.initializers.Zeros()
+        )
+        self.eps = self.add_weight(
+            shape=(1,),
+            name="eps",
+            initializer=keras.initializers.Constant(1e-6)
+        )
+        self.built = True
+
+    def call(self, x):
         shape = (1, 1, 1, self.in_ch)
         weight       = K.reshape ( self.weight, shape )
         bias         = K.reshape ( self.bias  , shape )
@@ -91,11 +100,30 @@ class FRNorm2D(Layer):
 
         return x*weight + bias
 
+class TLU(Layer):
+    def __init__(self, in_ch, **kwargs):
+        super().__init__(**kwargs)
+        self.in_ch = in_ch
+        self.tau_initializer = keras.initializers.Zeros()
+    
+    def build(self, input_shape):
+        self.tau = self.add_weight(
+            shape=(self.in_ch,),
+            name="tau",
+            initializer=self.tau_initializer
+        )
+        self.built = True
+
+    def call(self, inputs):
+        return tf.maximum(inputs, self.tau)
+
 class ConvBlock(Layer):
-    def __init__(self, in_ch, out_ch):
-        self.conv = Conv2D (out_ch, kernel_size=3, padding='same')
-        self.frn = FRNorm2D(out_ch)
-        self.tlu = tfa.layers.TLU()
+    def __init__(self, in_ch, out_ch, name):
+        self.conv = Conv2D (out_ch, kernel_size=3, padding='same', name=name+"/conv")
+        self.frn = FRNorm2D(out_ch, name=name+"/frn")
+        #self.frn = tfa.layers.FilterResponseNormalization(epsilon=0, learned_epsilon=True, name=name+"/frn")
+        self.tlu = TLU(out_ch, name=name+"/tlu")
+        #self.tlu = tfa.layers.TLU(name=name+"/tlu")
 
     def __call__(self, x):                
         x = self.conv(x)
@@ -104,10 +132,10 @@ class ConvBlock(Layer):
         return x
 
 class UpConvBlock(Layer):
-    def __init__(self, in_ch, out_ch):
-        self.conv = Conv2DTranspose (out_ch, kernel_size=3, strides=2, padding='same')
-        self.frn = FRNorm2D(out_ch)
-        self.tlu = tfa.layers.TLU()
+    def __init__(self, in_ch, out_ch, name):
+        self.conv = Conv2DTranspose (out_ch, kernel_size=3, strides=2, padding='same', name=name+"/conv")
+        self.frn = FRNorm2D(out_ch, name=name+"/frn")
+        self.tlu = TLU(out_ch, name=name+"/tlu")
 
     def __call__(self, x):
         x = self.conv(x)
@@ -165,9 +193,32 @@ class Xseg(KSession):
         self.define_model(self._model_definition)
         print(self._model.layers)
         for layer in self._model.layers:
-            print(layer.name)
+            if len(layer.trainable_weights):
+                print(layer.name)
+                print([weight.name for weight in layer.weights])
+
+        filepath = Path(self._model_path)
+        if filepath.exists():
+            d_dumped = filepath.read_bytes()
+            d = pickle.loads(d_dumped)
+        else:
+            print("NOT FOUND")
+
+        layers = self._model.layers
+
+        try:
+            for layer in layers:
+                if len(layer.trainable_weights):
+                    names = [weight.name.replace("kernel", "weight") for weight in layer.trainable_weights]
+                    print(names)
+                    weights = [d.get(name, None) for name in names]
+
+                    layer.set_weights(weights)
+
+        except Exception as e:
+            print(str(e))
             
-        self.load_model_weights()
+        #self.load_model_weights()
     
     def load_model_weights(self):
         filepath = Path(self._model_path)
@@ -175,27 +226,22 @@ class Xseg(KSession):
             d_dumped = filepath.read_bytes()
             d = pickle.loads(d_dumped)
         else:
+            print("NOT FOUND")
             return False
 
-        weights = self._model.layers
+        layers = self._model.layers
 
         try:
-            arrays = []
-            for w in weights:
-                w_name_split = w.name.split('/')
+            for layer in layers:
+                if len(layer.trainable_weights):
+                    names = [weight.name.replace("kernel", "weight") for weight in layer.trainable_weights]
 
-                sub_w_name = "/".join(w_name_split[1:])
+                    weights = [d.get(name, None) for name in names]
 
-                w_val = d.get(sub_w_name, None)
+                    layer.set_weights(weights)
 
-                if w_val is None:
-                    print("NOT LOADED")
-                else:
-                    w_val = np.reshape( w_val, w.shape.as_list() )
-                    arrays.append(w_val)
-
-            self._model.set_weight(arrays)
-        except:
+        except Exception as e:
+            print(str(e))
             return False
 
         return True
@@ -217,63 +263,63 @@ class Xseg(KSession):
         base_ch = 32
         out_ch = 1
 
-        conv01 = ConvBlock(in_ch, base_ch)
-        conv02 = ConvBlock(base_ch, base_ch)
+        conv01 = ConvBlock(in_ch, base_ch, name="conv01")
+        conv02 = ConvBlock(base_ch, base_ch, name="conv02")
         bp0 = BlurPool (filt_size=4)
 
-        conv11 = ConvBlock(base_ch, base_ch*2)
-        conv12 = ConvBlock(base_ch*2, base_ch*2)
+        conv11 = ConvBlock(base_ch, base_ch*2, name="conv11")
+        conv12 = ConvBlock(base_ch*2, base_ch*2, name="conv12")
         bp1 = BlurPool (filt_size=3)
 
-        conv21 = ConvBlock(base_ch*2, base_ch*4)
-        conv22 = ConvBlock(base_ch*4, base_ch*4)
+        conv21 = ConvBlock(base_ch*2, base_ch*4, name="conv21")
+        conv22 = ConvBlock(base_ch*4, base_ch*4, name="conv22")
         bp2 = BlurPool (filt_size=2)
 
-        conv31 = ConvBlock(base_ch*4, base_ch*8)
-        conv32 = ConvBlock(base_ch*8, base_ch*8)
-        conv33 = ConvBlock(base_ch*8, base_ch*8)
+        conv31 = ConvBlock(base_ch*4, base_ch*8, name="conv31")
+        conv32 = ConvBlock(base_ch*8, base_ch*8, name="conv32")
+        conv33 = ConvBlock(base_ch*8, base_ch*8, name="conv33")
         bp3 = BlurPool (filt_size=2)
 
-        conv41 = ConvBlock(base_ch*8, base_ch*8)
-        conv42 = ConvBlock(base_ch*8, base_ch*8)
-        conv43 = ConvBlock(base_ch*8, base_ch*8)
+        conv41 = ConvBlock(base_ch*8, base_ch*8, name="conv41")
+        conv42 = ConvBlock(base_ch*8, base_ch*8, name="conv42")
+        conv43 = ConvBlock(base_ch*8, base_ch*8, name="conv43")
         bp4 = BlurPool (filt_size=2)
         
-        conv51 = ConvBlock(base_ch*8, base_ch*8)
-        conv52 = ConvBlock(base_ch*8, base_ch*8)
-        conv53 = ConvBlock(base_ch*8, base_ch*8)
+        conv51 = ConvBlock(base_ch*8, base_ch*8, name="conv51")
+        conv52 = ConvBlock(base_ch*8, base_ch*8, name="conv52")
+        conv53 = ConvBlock(base_ch*8, base_ch*8, name="conv53")
         bp5 = BlurPool (filt_size=2)
 
-        dense1 = Dense(512, input_shape=(4*4*base_ch*8,))
-        dense2 = Dense(4*4* base_ch*8, input_shape=(512,))
+        dense1 = Dense(512, input_shape=(4*4*base_ch*8,), name="dense1")
+        dense2 = Dense(4*4* base_ch*8, input_shape=(512,), name="dense2")
 
-        up5 = UpConvBlock (base_ch*8, base_ch*4)
-        uconv53 = ConvBlock(base_ch*12, base_ch*8)
-        uconv52 = ConvBlock(base_ch*8, base_ch*8)
-        uconv51 = ConvBlock(base_ch*8, base_ch*8)
+        up5 = UpConvBlock (base_ch*8, base_ch*4, name="up5")
+        uconv53 = ConvBlock(base_ch*12, base_ch*8, name="uconv53")
+        uconv52 = ConvBlock(base_ch*8, base_ch*8, name="uconv52")
+        uconv51 = ConvBlock(base_ch*8, base_ch*8, name="uconv51")
         
-        up4 = UpConvBlock (base_ch*8, base_ch*4)
-        uconv43 = ConvBlock(base_ch*12, base_ch*8)
-        uconv42 = ConvBlock(base_ch*8, base_ch*8)
-        uconv41 = ConvBlock(base_ch*8, base_ch*8)
+        up4 = UpConvBlock (base_ch*8, base_ch*4, name="up4")
+        uconv43 = ConvBlock(base_ch*12, base_ch*8, name="uconv43")
+        uconv42 = ConvBlock(base_ch*8, base_ch*8, name="uconv42")
+        uconv41 = ConvBlock(base_ch*8, base_ch*8, name="uconv41")
 
-        up3 = UpConvBlock (base_ch*8, base_ch*4)
-        uconv33 = ConvBlock(base_ch*12, base_ch*8)
-        uconv32 = ConvBlock(base_ch*8, base_ch*8)
-        uconv31 = ConvBlock(base_ch*8, base_ch*8)
+        up3 = UpConvBlock (base_ch*8, base_ch*4, name="up3")
+        uconv33 = ConvBlock(base_ch*12, base_ch*8, name="uconv33")
+        uconv32 = ConvBlock(base_ch*8, base_ch*8, name="uconv32")
+        uconv31 = ConvBlock(base_ch*8, base_ch*8, name="uconv31")
 
-        up2 = UpConvBlock (base_ch*8, base_ch*4)
-        uconv22 = ConvBlock(base_ch*8, base_ch*4)
-        uconv21 = ConvBlock(base_ch*4, base_ch*4)
+        up2 = UpConvBlock (base_ch*8, base_ch*4, name="up2")
+        uconv22 = ConvBlock(base_ch*8, base_ch*4, name="uconv22")
+        uconv21 = ConvBlock(base_ch*4, base_ch*4, name="uconv21")
 
-        up1 = UpConvBlock (base_ch*4, base_ch*2)
-        uconv12 = ConvBlock(base_ch*4, base_ch*2)
-        uconv11 = ConvBlock(base_ch*2, base_ch*2)
+        up1 = UpConvBlock (base_ch*4, base_ch*2, name="up1")
+        uconv12 = ConvBlock(base_ch*4, base_ch*2, name="uconv12")
+        uconv11 = ConvBlock(base_ch*2, base_ch*2, name="uconv11")
 
-        up0 = UpConvBlock (base_ch*2, base_ch)
-        uconv02 = ConvBlock(base_ch*2, base_ch)
-        uconv01 = ConvBlock(base_ch, base_ch)
-        out_conv = Conv2D(out_ch, kernel_size=3, padding='same')
+        up0 = UpConvBlock (base_ch*2, base_ch, name="up0")
+        uconv02 = ConvBlock(base_ch*2, base_ch, name="uconv02")
+        uconv01 = ConvBlock(base_ch, base_ch, name="uconv01")
+        out_conv = Conv2D(out_ch, kernel_size=3, padding='same', name="out_conv")
 
         concat = Concatenate(axis=3)
 
