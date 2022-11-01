@@ -104,7 +104,7 @@ class ConvBlock(Layer):
 
 class UpConvBlock(Layer):
     def __init__(self, in_ch, out_ch):
-        self.conv = Conv2DTranspose (out_ch, kernel_size=3, padding='same')
+        self.conv = Conv2DTranspose (out_ch, kernel_size=3, strides=2, padding='same')
         self.frn = FRNorm2D(out_ch)
         self.tlu = tfa.layers.TLU()
 
@@ -122,7 +122,8 @@ class BlurPool(Layer):
         self.filt_size = filt_size
         pad = [ int(1.*(filt_size-1)/2), int(np.ceil(1.*(filt_size-1)/2)) ]
 
-        self.padding = [ pad, pad ]
+        #self.padding = [ pad, pad ]
+        self.padding = [ [0,0], pad, pad, [0,0] ]
 
         if(self.filt_size==1):
             a = np.array([1.,])
@@ -147,7 +148,8 @@ class BlurPool(Layer):
 
     def __call__(self, x):
         k = K.tile (self.k, (1,1,x.shape[3],1) )
-        x = K.spatial_2d_padding(x, padding=self.padding)
+        #x = K.spatial_2d_padding(x, padding=self.padding)
+        x = tf.pad(x, self.padding)
         x = K.depthwise_conv2d(x, k, strides=self.strides, padding='valid')
         return x
 
