@@ -34,7 +34,8 @@ class Mask(Masker):
         super().__init__(**kwargs)
         self.model_path = model_filename
         self.name = "Xseg"
-        self.input_size = 300
+        self.input_size = 256
+        # to determine
         self.vram = 2944
         self.vram_warnings = 1088  # at BS 1. OOMs at higher batch sizes
         self.vram_per_batch = 400
@@ -91,7 +92,7 @@ class FRNorm2D(Layer):
         return x*weight + bias
 
 class ConvBlock(Layer):
-    def __init__(self, in_ch, out_ch):              
+    def __init__(self, in_ch, out_ch):
         self.conv = Conv2D (out_ch, kernel_size=3, padding='same')
         self.frn = FRNorm2D(out_ch)
         self.tlu = tfa.layers.TLU()
@@ -163,6 +164,9 @@ class Xseg(KSession):
 
         self.define_model(self._model_definition)
         print(self._model.layers)
+        for layer in self._model.layers:
+            print(layer.name)
+            
         self.load_model_weights()
     
     def load_model_weights(self):
@@ -207,7 +211,7 @@ class Xseg(KSession):
             The tensor input to the model and tensor output to the model for compilation by
             :func`define_model`
         """
-        input_ = Input(shape=(300, 300, 3)) # need to change
+        input_ = Input(shape=(256, 256, 3)) # need to change
         
         in_ch = 3
         base_ch = 32
