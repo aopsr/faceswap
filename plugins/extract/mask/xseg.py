@@ -7,6 +7,9 @@ from lib.model.session import KSession
 from lib.utils import get_backend
 from ._base import Masker, logger
 
+import pickle
+from pathlib import Path
+
 if get_backend() == "amd":
     from keras.layers import (
         Add, Conv2D, Conv2DTranspose, Cropping2D, Dropout, Input, Lambda, MaxPooling2D,
@@ -145,7 +148,40 @@ class Xseg(KSession):
                          exclude_gpus=exclude_gpus)
 
         self.define_model(self._model_definition)
+        print(self._model.layers)
         self.load_model_weights()
+    
+    def load_model_weights(self):
+        filepath = Path(self._model_path)
+        if filepath.exists():
+            d_dumped = filepath.read_bytes()
+            d = pickle.loads(d_dumped)
+        else:
+            return False
+
+        weights = self._model.layers
+
+        try:
+            arrays = []
+            for w in weights:
+                w_name_split = w.name.split('/')
+
+                sub_w_name = "/".join(w_name_split[1:])
+
+                w_val = d.get(sub_w_name, None)
+
+                if w_val is None:
+                    print("NOT LOADED")
+                else:
+                    w_val = np.reshape( w_val, w.shape.as_list() )
+                    arrays.append(w_val)
+
+            self._model.set_weight(arrays)
+        except:
+            return False
+
+        return True
+            
 
     @classmethod
     def _model_definition(cls):
