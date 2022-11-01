@@ -191,34 +191,8 @@ class Xseg(KSession):
                          exclude_gpus=exclude_gpus)
 
         self.define_model(self._model_definition)
-        print(self._model.layers)
-        for layer in self._model.layers:
-            if len(layer.trainable_weights):
-                print(layer.name)
-                print([weight.name for weight in layer.weights])
-
-        filepath = Path(self._model_path)
-        if filepath.exists():
-            d_dumped = filepath.read_bytes()
-            d = pickle.loads(d_dumped)
-        else:
-            print("NOT FOUND")
-
-        layers = self._model.layers
-
-        try:
-            for layer in layers:
-                if len(layer.trainable_weights):
-                    names = [weight.name.replace("kernel", "weight") for weight in layer.trainable_weights]
-                    print(names)
-                    weights = [d.get(name, None) for name in names]
-
-                    layer.set_weights(weights)
-
-        except Exception as e:
-            print(str(e))
             
-        #self.load_model_weights()
+        self.load_model_weights()
     
     def load_model_weights(self):
         filepath = Path(self._model_path)
@@ -226,8 +200,7 @@ class Xseg(KSession):
             d_dumped = filepath.read_bytes()
             d = pickle.loads(d_dumped)
         else:
-            print("NOT FOUND")
-            return False
+            raise Exception("xseg model not found")
 
         layers = self._model.layers
 
@@ -235,17 +208,12 @@ class Xseg(KSession):
             for layer in layers:
                 if len(layer.trainable_weights):
                     names = [weight.name.replace("kernel", "weight") for weight in layer.trainable_weights]
-
                     weights = [d.get(name, None) for name in names]
 
                     layer.set_weights(weights)
 
-        except Exception as e:
-            print(str(e))
-            return False
-
-        return True
-            
+        except:
+            raise Exception("error loading xseg model weights")
 
     @classmethod
     def _model_definition(cls):
@@ -257,7 +225,7 @@ class Xseg(KSession):
             The tensor input to the model and tensor output to the model for compilation by
             :func`define_model`
         """
-        input_ = Input(shape=(256, 256, 3)) # need to change
+        input_ = Input(shape=(256, 256, 3))
         
         in_ch = 3
         base_ch = 32
@@ -384,4 +352,5 @@ class Xseg(KSession):
         x = uconv01(x)
 
         logits = out_conv(x)
-        return input_, K.sigmoid(logits)
+        mask = K.round(K.sigmoid(logits))
+        return input_, mask
