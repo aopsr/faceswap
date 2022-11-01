@@ -27,10 +27,10 @@ else:
 class Mask(Masker):
     """ Neural network to process face image into a segmentation mask of the face """
     def __init__(self, **kwargs):
-        git_model_id = 8
-        model_filename = "Nirkin_300_softmax_v1.h5"
-        super().__init__(git_model_id=git_model_id, model_filename=model_filename, **kwargs)
-        self.name = "VGG Clear"
+        model_filename = "XSeg_256"
+        super().__init__(**kwargs)
+        self.model_path = model_filename
+        self.name = "Xseg"
         self.input_size = 300
         self.vram = 2944
         self.vram_warnings = 1088  # at BS 1. OOMs at higher batch sizes
@@ -78,7 +78,7 @@ class FRNorm2D():
 
 class ConvBlock():
     def __init__(self, in_ch, out_ch):              
-        self.conv = Conv2D (in_ch, out_ch, kernel_size=3, padding='SAME')
+        self.conv = Conv2D (out_ch, kernel_size=3, padding='same')
         #self.frn = FRNorm2D(out_ch)
         self.frn = tfa.layers.FilterResponseNormalization(axis = list(range(1, out_ch+1)))
         self.tlu = tfa.layers.TLU()
@@ -91,7 +91,7 @@ class ConvBlock():
 
 class UpConvBlock():
     def __init__(self, in_ch, out_ch):
-        self.conv = Conv2DTranspose (in_ch, out_ch, kernel_size=3, padding='SAME')
+        self.conv = Conv2DTranspose (out_ch, kernel_size=3, padding='same')
         #self.frn = FRNorm2D(out_ch)
         self.frn = tfa.layers.FilterResponseNormalization(axis = list(range(1, out_ch+1)))
         self.tlu = tfa.layers.TLU()
@@ -255,7 +255,7 @@ class Xseg(KSession):
         up0 = UpConvBlock (base_ch*2, base_ch)
         uconv02 = ConvBlock(base_ch*2, base_ch)
         uconv01 = ConvBlock(base_ch, base_ch)
-        out_conv = Conv2D(base_ch, out_ch, kernel_size=3, padding='SAME')
+        out_conv = Conv2D(base_ch, out_ch, kernel_size=3, padding='same')
 
         x = conv01(x)
         x = x0 = conv02(x)
