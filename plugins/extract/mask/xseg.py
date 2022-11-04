@@ -9,6 +9,7 @@ from ._base import Masker, logger
 
 import pickle
 from pathlib import Path
+import cv2
 
 if get_backend() == "amd":
     from keras.layers import (
@@ -45,17 +46,16 @@ class Mask(Masker):
         self.model = Xseg(self.model_path,
                               allow_growth=self.config["allow_growth"],
                               exclude_gpus=self._exclude_gpus)
-        #self.model.append_softmax_activation(layer_index=-1)
         placeholder = np.zeros((self.batchsize, self.input_size, self.input_size, 3),
                                dtype="float32")
         self.model.predict(placeholder)
 
     def process_input(self, batch):
         """ Compile the detected faces for prediction """
-        batch["feed"] = np.array([feed.face[..., :3]
+        batch["feed"] = np.array([feed.extract_face_xseg()[..., :3]
                                     for feed in batch["feed_faces"]],
                                    dtype="float32") / 255.0
-        
+
         logger.trace("feed shape: %s", batch["feed"].shape)
         return batch
 
@@ -63,6 +63,23 @@ class Mask(Masker):
         """ Run model to get predictions """
         predictions = self.model.predict(batch["feed"])
         batch["prediction"] = predictions[..., -1]
+        # convert dfl wf to fs head
+        masks = []
+        for prediction, feed in zip(batch["prediction"], batch["feed_faces"]):
+            matrix = feed.matrix.copy()
+            padding = feed._padding_from_coverage(256, 1.0)["face"]
+            matrix = matrix * (256 - 2 * padding)
+            matrix[:, 2] += padding
+
+            transform_matrix = np.dot(np.append(matrix, [[0,0,1]], axis=0), np.append(cv2.invertAffineTransform(feed._xseg_matrix), [[0,0,1]], axis=0))[0:2]
+            prediction[prediction < 0.1] = 0
+            mask = cv2.warpAffine(prediction, transform_matrix, (256, 256), cv2.INTER_CUBIC)
+            mask[mask<0.5] = 0
+            mask[mask>=0.5] = 1
+            masks.append(mask)
+
+        batch["prediction"] = np.array(masks)
+
         return batch
 
     def process_output(self, batch):
@@ -122,9 +139,7 @@ class ConvBlock(Layer):
     def __init__(self, in_ch, out_ch, name):
         self.conv = Conv2D (out_ch, kernel_size=3, padding='same', name=name+"/conv")
         self.frn = FRNorm2D(out_ch, name=name+"/frn")
-        #self.frn = tfa.layers.FilterResponseNormalization(epsilon=0, learned_epsilon=True, name=name+"/frn")
         self.tlu = TLU(out_ch, name=name+"/tlu")
-        #self.tlu = tfa.layers.TLU(name=name+"/tlu")
 
     def __call__(self, x):                
         x = self.conv(x)
@@ -353,5 +368,5 @@ class Xseg(KSession):
         x = uconv01(x)
 
         logits = out_conv(x)
-        mask = K.round(K.sigmoid(logits))
-        return input_, mask
+
+        return input_, K.sigmoid(logits)
