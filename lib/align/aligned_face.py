@@ -648,8 +648,6 @@ class AlignedFace():
     def extract_face_xseg(self) -> Optional[np.ndarray]:
         if self._image is None:
             return None
-        if self._xseg_matrix is not None:
-            return self._xseg_matrix
         image_to_face_mat = get_transform_mat (self._frame_landmarks, self._size)
         self._xseg_matrix = image_to_face_mat
         return cv2.warpAffine(self._image, image_to_face_mat, (self._size, self._size), cv2.INTER_CUBIC)
