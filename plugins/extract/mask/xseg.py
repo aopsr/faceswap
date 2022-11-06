@@ -16,17 +16,14 @@ if get_backend() == "amd":
         Add, Conv2D, Conv2DTranspose, Cropping2D, Dropout, Input, Lambda, MaxPooling2D,
         ZeroPadding2D, Concatenate, Flatten, Reshape, Dense)
     from keras import backend as K
+    from keras import initializers
 else:
     # Ignore linting errors from Tensorflow's thoroughly broken import system
     from tensorflow.keras.layers import (  # pylint:disable=no-name-in-module,import-error
         Add, Conv2D, Conv2DTranspose, Cropping2D, Dropout, Input, Lambda, MaxPooling2D,
         ZeroPadding2D, Concatenate, Flatten, Reshape, Dense, Layer, Permute)
     from tensorflow.keras import backend as K
-    import tensorflow_addons as tfa
-    from tensorflow import keras
-    from tensorflow import Variable
-    import tensorflow as tf
-
+    from tensorflow.keras import initializers
 
 class Mask(Masker):
     """ Neural network to process face image into a segmentation mask of the face """
@@ -95,17 +92,17 @@ class FRNorm2D(Layer):
         self.weight = self.add_weight(
             shape=(self.in_ch,),
             name="weight",
-            initializer=keras.initializers.Ones()
+            initializer=initializers.Ones()
         )
         self.bias = self.add_weight(
             shape=(self.in_ch,),
             name="bias",
-            initializer=keras.initializers.Zeros()
+            initializer=initializers.Zeros()
         )
         self.eps = self.add_weight(
             shape=(1,),
             name="eps",
-            initializer=keras.initializers.Constant(1e-6)
+            initializer=initializers.Constant(1e-6)
         )
         self.built = True
 
@@ -113,7 +110,7 @@ class FRNorm2D(Layer):
         shape = (1, 1, 1, self.in_ch)
         weight       = K.reshape ( self.weight, shape )
         bias         = K.reshape ( self.bias  , shape )
-        nu2 = tf.math.reduce_mean(K.square(x), axis=[1,2], keepdims=True)
+        nu2 = K.mean(K.square(x), axis=[1,2], keepdims=True)
         x = x * ( 1.0/K.sqrt(nu2 + K.abs(self.eps) ) )
 
         return x*weight + bias
@@ -122,7 +119,7 @@ class TLU(Layer):
     def __init__(self, in_ch, **kwargs):
         super().__init__(**kwargs)
         self.in_ch = in_ch
-        self.tau_initializer = keras.initializers.Zeros()
+        self.tau_initializer = initializers.Zeros()
     
     def build(self, input_shape):
         self.tau = self.add_weight(
@@ -133,7 +130,7 @@ class TLU(Layer):
         self.built = True
 
     def call(self, inputs):
-        return tf.maximum(inputs, self.tau)
+        return K.maximum(inputs, self.tau)
 
 class ConvBlock(Layer):
     def __init__(self, in_ch, out_ch, name):
@@ -167,8 +164,7 @@ class BlurPool(Layer):
         self.filt_size = filt_size
         pad = [ int(1.*(filt_size-1)/2), int(np.ceil(1.*(filt_size-1)/2)) ]
 
-        #self.padding = [ pad, pad ]
-        self.padding = [ [0,0], pad, pad, [0,0] ]
+        self.padding = [ pad, pad ]
 
         if(self.filt_size==1):
             a = np.array([1.,])
@@ -193,8 +189,7 @@ class BlurPool(Layer):
 
     def __call__(self, x):
         k = K.tile (self.k, (1,1,x.shape[3],1) )
-        #x = K.spatial_2d_padding(x, padding=self.padding)
-        x = tf.pad(x, self.padding)
+        x = K.spatial_2d_padding(x, padding=self.padding)
         x = K.depthwise_conv2d(x, k, strides=self.strides, padding='valid')
         return x
 
