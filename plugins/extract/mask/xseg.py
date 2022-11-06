@@ -5,7 +5,7 @@ import numpy as np
 
 from lib.model.session import KSession
 from lib.utils import get_backend
-from ._base import Masker, logger
+from ._base import Masker, logger, BatchType, MaskerBatch
 
 import pickle
 from pathlib import Path
@@ -47,22 +47,25 @@ class Mask(Masker):
                                dtype="float32")
         self.model.predict(placeholder)
 
-    def process_input(self, batch):
+    def process_input(self, batch: BatchType) -> None:
         """ Compile the detected faces for prediction """
-        batch["feed"] = np.array([feed.extract_face_xseg()[..., :3]
-                                    for feed in batch["feed_faces"]],
+        batch.feed = np.array([feed.extract_face_xseg()[..., :3]
+                                    for feed in batch.feed_faces],
                                    dtype="float32") / 255.0
 
-        logger.trace("feed shape: %s", batch["feed"].shape)
-        return batch
+        logger.trace("feed shape: %s", batch.feed.shape)
 
-    def predict(self, batch):
+    def predict(self, feed: np.ndarray) -> np.ndarray:
         """ Run model to get predictions """
-        predictions = self.model.predict(batch["feed"])
-        batch["prediction"] = predictions[..., -1]
-        # convert dfl wf to fs head
+        return self.model.predict(feed)[..., -1]
+
+    def process_output(self, batch):
+        """ Compile found faces for output """
+
+        # convert dfl wf to fs face
+
         masks = []
-        for prediction, feed in zip(batch["prediction"], batch["feed_faces"]):
+        for prediction, feed in zip(batch.prediction, batch.feed_faces):
             matrix = feed.matrix.copy()
             padding = feed._padding_from_coverage(256, 1.0)["face"]
             matrix = matrix * (256 - 2 * padding)
@@ -75,12 +78,7 @@ class Mask(Masker):
             mask[mask>=0.5] = 1
             masks.append(mask)
 
-        batch["prediction"] = np.array(masks)
-
-        return batch
-
-    def process_output(self, batch):
-        """ Compile found faces for output """
+        batch.prediction = np.array(masks)
         return batch
     
 class FRNorm2D(Layer):
