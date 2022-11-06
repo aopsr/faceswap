@@ -11,7 +11,7 @@ import numpy as np
 
 from lib.model.session import KSession
 from ._base import Aligner, AlignerBatch, BatchType
-
+from lib.align import aligned_face as af
 if TYPE_CHECKING:
     from lib.align import DetectedFace
 
@@ -63,7 +63,35 @@ class Align(Aligner):
         logger.trace("Aligned image around center")  # type:ignore
         faces = self._normalize_faces(faces)
         batch.data.append(dict(center_scale=center_scale))
+
+        # first pass
+        prediction = np.array(self.predict(np.array(faces, dtype="float32")[..., :3] / 255.0))
+
+        subbatch = AlignerBatch(image=batch.image,
+                                    detected_faces=batch.detected_faces,
+                                    filename=batch.filename,
+                                    prediction=prediction,
+                                    data=[dict(center_scale=center_scale)])
+
+        self.process_output(subbatch)
+        faces = []
+        matrices = []
+        for landmarks, image in zip(subbatch.landmarks, subbatch.image):
+            matrix = af._umeyama(landmarks[17:], af._MEAN_FACE, True)[0:2]
+            pose = af.PoseEstimate(cv2.transform(np.expand_dims(landmarks, axis=1), matrix).squeeze())
+            matrix[:, 2] -= pose.offset["face"]
+            padding = af.AlignedFace._padding_from_coverage(256, 1.0)["face"]
+            matrix = matrix * (256 - 2 * padding)
+            matrix[:, 2] += padding
+            matrices.append(matrix)
+            face = cv2.warpAffine(image, matrix, (256, 256), flags=cv2.INTER_CUBIC)
+            faces.append(face)
+        
+        faces = self._normalize_faces(faces)
+        
+        # second pass
         batch.feed = np.array(faces, dtype="float32")[..., :3] / 255.0
+        batch.matrix = matrices
 
     def get_center_scale(self, detected_faces: List["DetectedFace"]) -> np.ndarray:
         """ Get the center and set scale of bounding box
@@ -233,6 +261,7 @@ class Align(Aligner):
             The current batch from the model with :attr:`predictions` populated
         """
         logger.trace("Obtain points from prediction")  # type:ignore
+        
         num_images, num_landmarks = batch.prediction.shape[:2]
         image_slice = np.repeat(np.arange(num_images)[:, None], num_landmarks, axis=1)
         landmark_slice = np.repeat(np.arange(num_landmarks)[None, :], num_images, axis=0)
@@ -255,8 +284,11 @@ class Align(Aligner):
         # TODO improve rudimentary sub-pixel logic to centroid of 3x3 window algorithm
         subpixel_landmarks[:, :, 0] = indices[1] + np.sign(x_subpixel_shift) * 0.25 + 0.5
         subpixel_landmarks[:, :, 1] = indices[0] + np.sign(y_subpixel_shift) * 0.25 + 0.5
-
-        batch.landmarks = self.transform(subpixel_landmarks,
+        
+        if len(batch.matrix):
+            batch.landmarks = [af._transform_points(landmarks[:, :2]*4, matrix, invert=True) for landmarks, matrix in zip(subpixel_landmarks, batch.matrix)]
+        else:
+            batch.landmarks = self.transform(subpixel_landmarks,
                                          batch.data[0]["center_scale"],
                                          resolution)
         logger.trace("Obtained points from prediction: %s", batch.landmarks)  # type:ignore

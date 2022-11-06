@@ -55,6 +55,8 @@ class AlignerBatch(ExtractorBatch):
     detected_faces: List["DetectedFace"] = field(default_factory=list)
     landmarks: np.ndarray = np.array([])
     refeeds: List[np.ndarray] = field(default_factory=list)
+    matrices: List[List] = field(default_factory=list)
+    matrix: List[np.ndarray] = field(default_factory=list)
 
 
 class Aligner(Extractor):  # pylint:disable=abstract-method
@@ -293,6 +295,7 @@ class Aligner(Extractor):  # pylint:disable=abstract-method
             # Move the populated feed into the batch refeed list. It will be overwritten at next
             # iteration
             batch.refeeds.append(batch.feed)
+            batch.matrices.append(batch.matrix)
 
         # Place the original bounding box back to detected face objects
         for face, box in zip(batch.detected_faces, original_boxes):
@@ -400,7 +403,8 @@ class Aligner(Extractor):  # pylint:disable=abstract-method
                                     filename=batch.filename,
                                     feed=batch.refeeds[idx],
                                     prediction=batch.prediction[idx],
-                                    data=[batch.data[idx]])
+                                    data=[batch.data[idx]],
+                                    matrix=batch.matrices[idx])
             self.process_output(subbatch)
             landmarks.append(subbatch.landmarks)
         batch.landmarks = np.average(landmarks, axis=0)
