@@ -28,11 +28,13 @@ else:
 
 if TYPE_CHECKING:
     import numpy as np
+    from lib.align.alignments import PNGHeaderSourceDict
     from lib.align.detected_face import DetectedFace
     from plugins.extract._base import Extractor as PluginExtractor
     from plugins.extract.detect._base import Detector
     from plugins.extract.align._base import Aligner
     from plugins.extract.mask._base import Masker
+    from plugins.extract.recognition._base import Identity
 
 logger = logging.getLogger(__name__)  # pylint:disable=invalid-name
 _INSTANCES = -1  # Tracking for multiple instances of pipeline
@@ -54,13 +56,16 @@ class Extractor():
 
     Parameters
     ----------
-    detector: str
+    detector: str or ``None``
         The name of a detector plugin as exists in :mod:`plugins.extract.detect`
-    aligner: str
+    aligner: str or ``None
         The name of an aligner plugin as exists in :mod:`plugins.extract.align`
-    masker: str or list
+    masker: str or list or ``None
         The name of a masker plugin(s) as exists in :mod:`plugins.extract.mask`.
         This can be a single masker or a list of multiple maskers
+    recognition: str or ``None``
+        The name of the recognition plugin to use. ``None`` to not do face recognition.
+        Default: ``None``
     configfile: str, optional
         The path to a custom ``extract.ini`` configfile. If ``None`` then the system
         :file:`config/extract.ini` file will be used.
@@ -76,7 +81,7 @@ class Extractor():
         exactly what angles to check. Can also pass in ``'on'`` to increment at 90 degree
         intervals. Default: ``None``
     min_size: int, optional
-        Used to set the :attr:`plugins.extract.detect.min_size` attribute Filters out faces
+        Used to set the :attr:`plugins.extract.detect.min_size` attribute. Filters out faces
         detected below this size. Length, in pixels across the diagonal of the bounding box. Set
         to ``0`` for off. Default: ``0``
     normalize_method: {`None`, 'clahe', 'hist', 'mean'}, optional
@@ -85,9 +90,8 @@ class Extractor():
     re_feed: int
         The number of times to re-feed a slightly adjusted bounding box into the aligner.
         Default: `0`
-    image_is_aligned: bool, optional
-        Used to set the :attr:`plugins.extract.mask.image_is_aligned` attribute. Indicates to the
-        masker that the fed in image is an aligned face rather than a frame. Default: ``False``
+    disable_filter: bool, optional
+        Disable all aligner filters regardless of config option. Default: ``False``
 
     Attributes
     ----------
@@ -96,26 +100,28 @@ class Extractor():
         :attr:`final_pass` to indicate to the caller which phase is being processed
     """
     def __init__(self,
-                 detector: str,
-                 aligner: str,
-                 masker: Union[str, List[str]],
+                 detector: Optional[str],
+                 aligner: Optional[str],
+                 masker: Optional[Union[str, List[str]]],
+                 recognition: Optional[str] = None,
                  configfile: Optional[str] = None,
                  multiprocess: bool = False,
                  exclude_gpus: Optional[List[int]] = None,
-                 rotate_images: Optional[List[int]] = None,
-                 min_size: int = 20,
-                 normalize_method: Optional[str] = None,
+                 rotate_images: Optional[str] = None,
+                 min_size: int = 0,
+                 normalize_method:  Optional[Literal["none", "clahe", "hist", "mean"]] = None,
                  re_feed: int = 0,
-                 image_is_aligned: bool = False) -> None:
-        logger.debug("Initializing %s: (detector: %s, aligner: %s, masker: %s, configfile: %s, "
-                     "multiprocess: %s, exclude_gpus: %s, rotate_images: %s, min_size: %s, "
-                     "normalize_method: %s, re_feed: %s, image_is_aligned: %s)",
-                     self.__class__.__name__, detector, aligner, masker, configfile, multiprocess,
-                     exclude_gpus, rotate_images, min_size, normalize_method, re_feed,
-                     image_is_aligned)
+                 disable_filter: bool = False) -> None:
+        logger.debug("Initializing %s: (detector: %s, aligner: %s, masker: %s, recognition: %s, "
+                     "configfile: %s, multiprocess: %s, exclude_gpus: %s, rotate_images: %s, "
+                     "min_size: %s, normalize_method: %s, re_feed: %s, disable_filter: %s, )",
+                     self.__class__.__name__, detector, aligner, masker, recognition, configfile,
+                     multiprocess, exclude_gpus, rotate_images, min_size, normalize_method,
+                     re_feed, disable_filter)
         self._instance = _get_instance()
-        masker = [masker] if not isinstance(masker, list) else masker
-        self._flow = self._set_flow(detector, aligner, masker)
+        maskers = [cast(Optional[str],
+                   masker)] if not isinstance(masker, list) else cast(List[Optional[str]], masker)
+        self._flow = self._set_flow(detector, aligner, maskers, recognition)
         self._exclude_gpus = exclude_gpus
         # We only ever need 1 item in each queue. This is 2 items cached (1 in queue 1 waiting
         # for queue) at each point. Adding more just stacks RAM with no speed benefit.
@@ -124,8 +130,13 @@ class Extractor():
         self._scaling_fallback = 0.4
         self._vram_stats = self._get_vram_stats()
         self._detect = self._load_detect(detector, rotate_images, min_size, configfile)
-        self._align = self._load_align(aligner, configfile, normalize_method, re_feed)
-        self._mask = [self._load_mask(mask, image_is_aligned, configfile) for mask in masker]
+        self._align = self._load_align(aligner,
+                                       configfile,
+                                       normalize_method,
+                                       re_feed,
+                                       disable_filter)
+        self._recognition = self._load_recognition(recognition, configfile)
+        self._mask = [self._load_mask(mask, configfile) for mask in maskers]
         self._is_parallel = self._set_parallel_processing(multiprocess)
         self._phases = self._set_phases(multiprocess)
         self._phase_index = 0
@@ -204,6 +215,18 @@ class Extractor():
         logger.trace(retval)  # type: ignore
         return retval
 
+    @property
+    def aligner(self) -> "Aligner":
+        """ The currently selected aligner plugin """
+        assert self._align is not None
+        return self._align
+
+    @property
+    def recognition(self) -> "Identity":
+        """ The currently selected recognition plugin """
+        assert self._recognition is not None
+        return self._recognition
+
     def reset_phase_index(self) -> None:
         """ Reset the current phase index back to 0. Used for when batch processing is used in
         extract. """
@@ -267,8 +290,7 @@ class Extractor():
         out_queue = self._output_queue
         while True:
             try:
-                if self._check_and_raise_error():
-                    break
+                self._check_and_raise_error()
                 faces = out_queue.get(True, 1)
                 if faces == "EOF":
                     break
@@ -381,14 +403,33 @@ class Extractor():
         return retval
 
     @staticmethod
-    def _set_flow(detector: str, aligner: str, masker: List[str]) -> List[str]:
-        """ Set the flow list based on the input plugins """
-        logger.debug("detector: %s, aligner: %s, masker: %s", detector, aligner, masker)
+    def _set_flow(detector: Optional[str],
+                  aligner: Optional[str],
+                  masker: List[Optional[str]],
+                  recognition: Optional[str]) -> List[str]:
+        """ Set the flow list based on the input plugins
+
+        Parameters
+        ----------
+        detector: str or ``None``
+            The name of a detector plugin as exists in :mod:`plugins.extract.detect`
+        aligner: str or ``None
+            The name of an aligner plugin as exists in :mod:`plugins.extract.align`
+        masker: str or list or ``None
+            The name of a masker plugin(s) as exists in :mod:`plugins.extract.mask`.
+            This can be a single masker or a list of multiple maskers
+        recognition: str or ``None``
+            The name of the recognition plugin to use. ``None`` to not do face recognition.
+        """
+        logger.debug("detector: %s, aligner: %s, masker: %s recognition: %s",
+                     detector, aligner, masker, recognition)
         retval = []
         if detector is not None and detector.lower() != "none":
             retval.append("detect")
         if aligner is not None and aligner.lower() != "none":
             retval.append("align")
+        if recognition is not None and recognition.lower() != "none":
+            retval.append("recognition")
         retval.extend([f"mask_{idx}"
                        for idx, mask in enumerate(masker)
                        if mask is not None and mask.lower() != "none"])
@@ -536,11 +577,30 @@ class Extractor():
 
     # << INTERNAL PLUGIN HANDLING >> #
     def _load_align(self,
-                    aligner: str,
+                    aligner: Optional[str],
                     configfile: Optional[str],
-                    normalize_method: Optional[str],
-                    re_feed: int) -> Optional["Aligner"]:
-        """ Set global arguments and load aligner plugin """
+                    normalize_method: Optional[Literal["none", "clahe", "hist", "mean"]],
+                    re_feed: int,
+                    disable_filter: bool) -> Optional["Aligner"]:
+        """ Set global arguments and load aligner plugin
+
+        Parameters
+        ----------
+        aligner: str
+            The aligner plugin to load or ``None`` for no aligner
+        configfile: str
+            Optional full path to custom config file
+        normalize_method: str
+            Optional normalization method to use
+        re_feed: int
+            The number of times to adjust the image and re-feed to get an average score
+        disable_filter: bool
+            Disable all aligner filters regardless of config option
+
+        Returns
+        -------
+        Aligner plugin if one is specified otherwise ``None``
+        """
         if aligner is None or aligner.lower() == "none":
             logger.debug("No aligner selected. Returning None")
             return None
@@ -550,12 +610,13 @@ class Extractor():
                                                         configfile=configfile,
                                                         normalize_method=normalize_method,
                                                         re_feed=re_feed,
+                                                        disable_filter=disable_filter,
                                                         instance=self._instance)
         return plugin
 
     def _load_detect(self,
-                     detector: str,
-                     rotation: Optional[List[int]],
+                     detector: Optional[str],
+                     rotation: Optional[str],
                      min_size: int,
                      configfile: Optional[str]) -> Optional["Detector"]:
         """ Set global arguments and load detector plugin """
@@ -572,19 +633,44 @@ class Extractor():
         return plugin
 
     def _load_mask(self,
-                   masker: str,
-                   image_is_aligned: bool,
+                   masker: Optional[str],
                    configfile: Optional[str]) -> Optional["Masker"]:
-        """ Set global arguments and load masker plugin """
+        """ Set global arguments and load masker plugin
+
+        Parameters
+        ----------
+        masker: str or ``none``
+            The name of the masker plugin to use or ``None`` if no masker
+        configfile: str
+            Full path to custom config.ini file or ``None`` to use default
+
+        Returns
+        -------
+        :class:`~plugins.extract.mask._base.Masker` or ``None``
+            The masker plugin to use or ``None`` if no masker selected
+        """
         if masker is None or masker.lower() == "none":
             logger.debug("No masker selected. Returning None")
             return None
         masker_name = masker.replace("-", "_").lower()
         logger.debug("Loading Masker: '%s'", masker_name)
         plugin = PluginLoader.get_masker(masker_name)(exclude_gpus=self._exclude_gpus,
-                                                      image_is_aligned=image_is_aligned,
                                                       configfile=configfile,
                                                       instance=self._instance)
+        return plugin
+
+    def _load_recognition(self,
+                          recognition: Optional[str],
+                          configfile: Optional[str]) -> Optional["Identity"]:
+        """ Set global arguments and load recognition plugin """
+        if recognition is None or recognition.lower() == "none":
+            logger.debug("No recognition selected. Returning None")
+            return None
+        recognition_name = recognition.replace("-", "_").lower()
+        logger.debug("Loading Recognition: '%s'", recognition_name)
+        plugin = PluginLoader.get_recognition(recognition_name)(exclude_gpus=self._exclude_gpus,
+                                                                configfile=configfile,
+                                                                instance=self._instance)
         return plugin
 
     def _launch_plugin(self, phase: str) -> None:
@@ -633,18 +719,6 @@ class Extractor():
         available_vram = (cast(int, self._vram_stats["vram_free"])
                           - plugins_required) // len(gpu_plugins)
         self._set_plugin_batchsize(gpu_plugins, available_vram)
-
-    def set_aligner_normalization_method(self, method: str) -> None:
-        """ Change the normalization method for faces fed into the aligner.
-
-        Parameters
-        ----------
-        method: {"none", "clahe", "hist", "mean"}
-            The normalization method to apply to faces prior to feeding into the aligner's model
-        """
-        assert self._align is not None
-        logger.debug("Setting to: '%s'", method)
-        self._align.set_normalize_method(method)
 
     def _set_plugin_batchsize(self, gpu_plugins: List[str], available_vram: float) -> None:
         """ Set the batch size for the given plugin based on given available vram.
@@ -696,12 +770,10 @@ class Extractor():
         for plugin in self._active_plugins:
             plugin.join()
 
-    def _check_and_raise_error(self) -> bool:
+    def _check_and_raise_error(self) -> None:
         """ Check all threads for errors and raise if one occurs """
         for plugin in self._active_plugins:
-            if plugin.check_and_raise_error():
-                return True
-        return False
+            plugin.check_and_raise_error()
 
 
 class ExtractMedia():
@@ -712,25 +784,33 @@ class ExtractMedia():
     filename: str
         The base name of the original frame's filename
     image: :class:`numpy.ndarray`
-        The original frame
+        The original frame or a faceswap aligned face image
     detected_faces: list, optional
         A list of :class:`~lib.align.DetectedFace` objects. Detected faces can be added
         later with :func:`add_detected_faces`. Setting ``None`` will default to an empty list.
         Default: ``None``
+    is_aligned: bool, optional
+        ``True`` if the :attr:`image` is an aligned faceswap image otherwise ``False``. Used for
+        face filtering with vggface2. Aligned faceswap images will automatically skip detection,
+        alignment and masking. Default: ``False``
     """
 
     def __init__(self,
                  filename: str,
                  image: "np.ndarray",
-                 detected_faces: Optional[List["DetectedFace"]] = None) -> None:
+                 detected_faces: Optional[List["DetectedFace"]] = None,
+                 is_aligned: bool = False) -> None:
         logger.trace("Initializing %s: (filename: '%s', image shape: %s, "  # type: ignore
-                     "detected_faces: %s)", self.__class__.__name__, filename, image.shape,
-                     detected_faces)
+                     "detected_faces: %s, is_aligned: %s)", self.__class__.__name__, filename,
+                     image.shape, detected_faces, is_aligned)
         self._filename = filename
         self._image: Optional["np.ndarray"] = image
         self._image_shape = cast(Tuple[int, int, int], image.shape)
         self._detected_faces: List["DetectedFace"] = ([] if detected_faces is None
                                                       else detected_faces)
+        self._is_aligned = is_aligned
+        self._frame_metadata: Optional["PNGHeaderSourceDict"] = None
+        self._sub_folders: List[Optional[str]] = []
 
     @property
     def filename(self) -> str:
@@ -757,6 +837,32 @@ class ExtractMedia():
     def detected_faces(self) -> List["DetectedFace"]:
         """list: A list of :class:`~lib.align.DetectedFace` objects in the :attr:`image`. """
         return self._detected_faces
+
+    @property
+    def is_aligned(self) -> bool:
+        """ bool. ``True`` if :attr:`image` is an aligned faceswap image otherwise ``False`` """
+        return self._is_aligned
+
+    @property
+    def frame_metadata(self) -> "PNGHeaderSourceDict":
+        """ dict: The frame metadata that has been added from an aligned image. This property
+        should only be called after :func:`add_frame_metadata` has been called when processing
+        an aligned face. For all other instances an assertion error will be raised.
+
+        Raises
+        ------
+        AssertionError
+            If frame metadata has not been populated from an aligned image
+        """
+        assert self._frame_metadata is not None
+        return self._frame_metadata
+
+    @property
+    def sub_folders(self) -> List[Optional[str]]:
+        """ list: The sub_folders that the faces should be output to. Used when binning filter
+        output is enabled. The list corresponds to the list of detected faces
+        """
+        return self._sub_folders
 
     def get_image_copy(self, color_format: Literal["BGR", "RGB", "GRAY"]) -> "np.ndarray":
         """ Get a copy of the image in the requested color format.
@@ -788,6 +894,19 @@ class ExtractMedia():
                      "(faces: %s, lrtb: %s)", self._filename, faces,
                      [(face.left, face.right, face.top, face.bottom) for face in faces])
         self._detected_faces = faces
+
+    def add_sub_folders(self, folders: List[Optional[str]]) -> None:
+        """ Add detected faces to the object. Called at the end of each extraction phase.
+
+        Parameters
+        ----------
+        folders: list
+            A list of str sub folder names or ``None`` if no sub folder is required. Should
+            correspond to the detected faces list
+        """
+        logger.trace("Adding sub folders for filename: '%s'. "  # type: ignore
+                     "(folders: %s)", self._filename, folders,)
+        self._sub_folders = folders
 
     def remove_image(self) -> None:
         """ Delete the image and reset :attr:`image` to ``None``.
@@ -829,6 +948,18 @@ class ExtractMedia():
         self._image_shape = cast(Tuple[int, int, int],self._image.shape)
         for face in self._detected_faces:
             face.scale_face(scale)
+
+    def add_frame_metadata(self, metadata: "PNGHeaderSourceDict") -> None:
+        """ Add the source frame metadata from an aligned PNG's header data.
+
+        metadata: dict
+            The contents of the 'source' field in the PNG header
+        """
+        logger.trace("Adding PNG Source data for '%s': %s",  # type:ignore
+                     self._filename, metadata)
+        dims = cast(Tuple[int, int], metadata["source_frame_dims"])
+        self._image_shape = (*dims, 3)
+        self._frame_metadata = metadata
 
     def _image_as_bgr(self) -> "np.ndarray":
         """ Get a copy of the source frame in BGR format.

@@ -11,6 +11,7 @@ import sys
 from ast import literal_eval
 from bisect import bisect
 from concurrent import futures
+from typing import Optional, TYPE_CHECKING, Union
 from zlib import crc32
 
 import cv2
@@ -22,6 +23,9 @@ from tqdm import tqdm
 from lib.multithreading import MultiThread
 from lib.queue_manager import queue_manager, QueueEmpty
 from lib.utils import convert_to_secs, FaceswapError, _video_extensions, get_image_paths
+
+if TYPE_CHECKING:
+    from lib.align.alignments import PNGHeaderDict
 
 logger = logging.getLogger(__name__)  # pylint:disable=invalid-name
 
@@ -551,7 +555,9 @@ def update_existing_metadata(filename, metadata):
     os.replace(tmp_filename, filename)
 
 
-def encode_image(image, extension, metadata=None):
+def encode_image(image: np.ndarray,
+                 extension: str,
+                 metadata: Optional["PNGHeaderDict"] = None) -> bytes:
     """ Encode an image.
 
     Parameters
@@ -579,7 +585,7 @@ def encode_image(image, extension, metadata=None):
         raise ValueError("Metadata is only supported for .png images")
     retval = cv2.imencode(extension, image)[1]
     if metadata:
-        retval = np.frombuffer(png_write_meta(retval.tobytes(), metadata), dtype="uint8")
+        retval = png_write_meta(retval.tobytes(), metadata)
     return retval
 
 
@@ -1031,7 +1037,7 @@ class ImagesLoader(ImageIO):
             If the given location is a file and does not have a valid video extension.
 
         """
-        if os.path.isdir(self.location):
+        if not isinstance(self.location, str) or os.path.isdir(self.location):
             retval = False
         elif os.path.splitext(self.location)[1].lower() in _video_extensions:
             retval = True
@@ -1227,6 +1233,29 @@ class FacesLoader(ImagesLoader):
                      path, count)
         super().__init__(path, queue_size=8, skip_list=skip_list, count=count)
 
+    def _get_count_and_filelist(self, fast_count, count):
+        """ Override default implementation to only return png files from the source folder
+
+        Parameters
+        ----------
+        fast_count: bool
+            Not used for faces loader
+        count: int
+            The number of images that the loader will encounter if already known, otherwise
+            ``None``
+        """
+        if isinstance(self.location, (list, tuple)):
+            file_list = self.location
+        else:
+            file_list = get_image_paths(self.location)
+
+        self._file_list = [fname for fname in file_list
+                           if os.path.splitext(fname)[-1].lower() == ".png"]
+        self._count = len(self.file_list) if count is None else count
+
+        logger.debug("count: %s", self.count)
+        logger.trace("filelist: %s", self.file_list)
+
     def _from_folder(self):
         """ Generator for loading images from a folder
         Faces will only ever be loaded from a folder, so this is the only function requiring
@@ -1399,7 +1428,10 @@ class ImagesSaver(ImageIO):
             executor.submit(self._save, *item)
         executor.shutdown()
 
-    def _save(self, filename, image):
+    def _save(self,
+              filename: str,
+              image: Union[bytes, np.ndarray],
+              sub_folder: Optional[str]) -> None:
         """ Save a single image inside a ThreadPoolExecutor
 
         Parameters
@@ -1407,21 +1439,32 @@ class ImagesSaver(ImageIO):
         filename: str
             The filename of the image to be saved. NB: Any folders passed in with the filename
             will be stripped and replaced with :attr:`location`.
-        image: numpy.ndarray
-            The image to be saved
+        image: bytes or :class:`numpy.ndarray`
+            The encoded image or numpy array to be saved
+        subfolder: str or ``None``
+            If the file should be saved in a subfolder in the output location, the subfolder should
+            be provided here. ``None`` for no subfolder.
         """
-        filename = os.path.join(self.location, os.path.basename(filename))
+        location = os.path.join(self.location, sub_folder) if sub_folder else self._location
+        if sub_folder and not os.path.exists(location):
+            os.makedirs(location)
+
+        filename = os.path.join(location, os.path.basename(filename))
         try:
             if self._as_bytes:
+                assert isinstance(image, bytes)
                 with open(filename, "wb") as out_file:
                     out_file.write(image)
             else:
                 cv2.imwrite(filename, image)
-            logger.trace("Saved image: '%s'", filename)
+            logger.trace("Saved image: '%s'", filename)  # type:ignore
         except Exception as err:  # pylint: disable=broad-except
-            logger.error("Failed to save image '%s'. Original Error: %s", filename, err)
+            logger.error("Failed to save image '%s'. Original Error: %s", filename, str(err))
 
-    def save(self, filename, image):
+    def save(self,
+             filename: str,
+             image: Union[bytes, np.ndarray],
+             sub_folder: Optional[str] = None) -> None:
         """ Save the given image in the background thread
 
         Ensure that :func:`close` is called once all save operations are complete.
@@ -1429,13 +1472,17 @@ class ImagesSaver(ImageIO):
         Parameters
         ----------
         filename: str
-            The filename of the image to be saved
-        image: numpy.ndarray
-            The image to be saved
+            The filename of the image to be saved. NB: Any folders passed in with the filename
+            will be stripped and replaced with :attr:`location`.
+        image: bytes
+            The encoded image to be saved
+        subfolder: str, optional
+            If the file should be saved in a subfolder in the output location, the subfolder should
+            be provided here. ``None`` for no subfolder. Default: ``None``
         """
         self._set_thread()
-        logger.trace("Putting to save queue: '%s'", filename)
-        self._queue.put((filename, image))
+        logger.trace("Putting to save queue: '%s'", filename)  # type:ignore
+        self._queue.put((filename, image, sub_folder))
 
     def close(self):
         """ Signal to the Save Threads that they should be closed and cleanly shutdown

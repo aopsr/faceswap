@@ -13,14 +13,9 @@ Subpackages
 .. toctree::
    :maxdepth: 1
 
+   alignments
    manual
-
-alignments module
-=================
-.. automodule:: tools.alignments.alignments
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   sort
 
 mask module
 ===========

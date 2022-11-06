@@ -12,6 +12,7 @@ from typing import cast, Callable, Dict, List, Optional, TYPE_CHECKING
 import cv2
 import numpy as np
 
+from lib.gui.utils.image import TRAININGPREVIEW
 from lib.image import read_image_meta
 from lib.keypress import KBHit
 from lib.multithreading import MultiThread, FSThread
@@ -63,8 +64,8 @@ class Train():  # pylint:disable=too-few-public-methods
         gui_cache = os.path.join(
             os.path.realpath(os.path.dirname(sys.argv[0])), "lib", "gui", ".cache")
         self._gui_triggers: Dict[Literal["mask", "refresh"], str] = dict(
-            mask=os.path.join(gui_cache, ".preview_trigger"),
-            refresh=os.path.join(gui_cache, ".preview_mask_toggle"))
+            mask=os.path.join(gui_cache, ".preview_mask_toggle"),
+            refresh=os.path.join(gui_cache, ".preview_trigger"))
         self._stop: bool = False
         self._save_now: bool = False
         self._preview = PreviewInterface(self._args.preview)
@@ -494,22 +495,21 @@ class Train():  # pylint:disable=too-few-public-methods
             The preview image to be displayed and/or written out
         name: str, optional
             The name of the image for saving or display purposes. If an empty string is passed
-            then it will automatically be names. Default: ""
+            then it will automatically be named. Default: ""
         """
         logger.debug("Updating preview: (name: %s)", name)
         try:
             scriptpath = os.path.realpath(os.path.dirname(sys.argv[0]))
             if self._args.write_image:
                 logger.debug("Saving preview to disk")
-                img = "training_preview.jpg"
+                img = "training_preview.png"
                 imgfile = os.path.join(scriptpath, img)
                 cv2.imwrite(imgfile, image)  # pylint: disable=no-member
                 logger.debug("Saved preview to: '%s'", img)
             if self._args.redirect_gui:
                 logger.debug("Generating preview for GUI")
-                img = ".gui_training_preview.jpg"
-                imgfile = os.path.join(scriptpath, "lib", "gui",
-                                       ".cache", "preview", img)
+                img = TRAININGPREVIEW
+                imgfile = os.path.join(scriptpath, "lib", "gui", ".cache", "preview", img)
                 cv2.imwrite(imgfile, image)  # pylint: disable=no-member
                 logger.debug("Generated preview for GUI: '%s'", imgfile)
             if self._args.preview:
