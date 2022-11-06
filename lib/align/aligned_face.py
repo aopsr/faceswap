@@ -256,7 +256,7 @@ def _transform_points(points, mat, invert=False):
     points = np.squeeze(points)
     return points
 
-def get_transform_mat (image_landmarks, output_size, scale=1.0):
+def get_transform_mat (image_landmarks, output_size, whole_face=True, scale=1.0):
     if not isinstance(image_landmarks, np.ndarray):
         image_landmarks = np.array (image_landmarks)
 
@@ -277,11 +277,12 @@ def get_transform_mat (image_landmarks, output_size, scale=1.0):
     padding, remove_align = 0.40, False
     mod = (1.0 / scale)* ( npla.norm(g_p[0]-g_p[2])*(padding*np.sqrt(2.0) + 0.5) )
 
-    # adjust vertical offset for WHOLE_FACE, 7% below in order to cover more forehead
-    vec = (g_p[0]-g_p[3]).astype(np.float32)
-    vec_len = npla.norm(vec)
-    vec /= vec_len
-    g_c += vec*vec_len*0.07
+    if whole_face:
+        # adjust vertical offset for WHOLE_FACE, 7% below in order to cover more forehead
+        vec = (g_p[0]-g_p[3]).astype(np.float32)
+        vec_len = npla.norm(vec)
+        vec /= vec_len
+        g_c += vec*vec_len*0.07
     
     if not remove_align:
         l_t = np.array( [ g_c - tb_diag_vec*mod,

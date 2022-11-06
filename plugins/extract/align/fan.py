@@ -77,12 +77,7 @@ class Align(Aligner):
         faces = []
         matrices = []
         for landmarks, image in zip(subbatch.landmarks, subbatch.image):
-            matrix = af._umeyama(landmarks[17:], af._MEAN_FACE, True)[0:2]
-            pose = af.PoseEstimate(cv2.transform(np.expand_dims(landmarks, axis=1), matrix).squeeze())
-            matrix[:, 2] -= pose.offset["face"]
-            padding = af.AlignedFace._padding_from_coverage(256, 1.0)["face"]
-            matrix = matrix * (256 - 2 * padding)
-            matrix[:, 2] += padding
+            matrix = af.get_transform_mat(landmarks, 256, False)
             matrices.append(matrix)
             face = cv2.warpAffine(image, matrix, (256, 256), flags=cv2.INTER_CUBIC)
             faces.append(face)
