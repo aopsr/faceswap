@@ -245,7 +245,7 @@ class Converter():
         logger.trace("Patching image: '%s'", predicted.inbound.filename)  # type: ignore
         frame_size = (predicted.inbound.image.shape[1], predicted.inbound.image.shape[0])
         if self._max_scale and len(predicted.reference_faces) and not self._is_video:
-            s = self._max_scale / max((max(rf.original_roi_2[1][0]-rf.original_roi_2[0][0], rf.original_roi_2[1][1]-rf.original_roi_2[0][1]) / self._output_size) for rf in predicted.reference_faces)
+            s = self._max_scale / max((max(rf.original_roi[1][0]-rf.original_roi[0][0], rf.original_roi[1][1]-rf.original_roi[0][1]) / self._output_size) for rf in predicted.reference_faces)
             if s < 1:
                 predicted.inbound.scale_image(s)
                 frame_size = (predicted.inbound.image.shape[1], predicted.inbound.image.shape[0])
