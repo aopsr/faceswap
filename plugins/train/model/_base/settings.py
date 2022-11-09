@@ -35,6 +35,7 @@ else:
     from tensorflow.keras import backend as K  # pylint:disable=import-error
     import tensorflow.keras.mixed_precision as mixedprecision  # noqa pylint:disable=import-error,no-name-in-module
     from lib.model.autoclip import AutoClipper  # pylint:disable=ungrouped-imports
+    from lib.model.linear_warmup import LinearWarmup  # pylint:disable=ungrouped-imports
 
 
 if sys.version_info < (3, 8):
@@ -318,12 +319,27 @@ class Optimizer():  # pylint:disable=too-few-public-methods
                                           dict(beta_1=0.5, beta_2=0.99, epsilon=epsilon)),
                             "adam": (optimizers.Adam,
                                      dict(beta_1=0.5, beta_2=0.99, epsilon=epsilon)),
+                            "adamw": (optimizers.AdamW,
+                                        dict(beta_1=0.5, beta_2=0.99, epsilon=epsilon)),
                             "nadam": (optimizers.Nadam,
                                       dict(beta_1=0.5, beta_2=0.99, epsilon=epsilon)),
                             "rms-prop": (optimizers.RMSprop, dict(epsilon=epsilon))}
         optimizer_info = valid_optimizers[optimizer]
         self._optimizer: Callable = optimizer_info[0]
         self._kwargs: Dict[str, Any] = optimizer_info[1]
+
+        self._learning_rate: float = learning_rate
+        scheduler = tf.keras.optimizers.schedules.CosineDecayRestarts(
+                initial_learning_rate = learning_rate,
+                first_decay_steps = 1000,
+                alpha=0.5)
+        
+        self._scheduler = LinearWarmup(
+            after_warmup_lr_sched = scheduler,
+            warmup_steps = 500,
+            warmup_learning_rate = 0.0,
+        )
+
         self._accumulate = accumulate
 
         self._configure(learning_rate, autoclip)
@@ -360,7 +376,7 @@ class Optimizer():  # pylint:disable=too-few-public-methods
         parameter for AMD backend users.
         """
         lr_key = "lr" if get_backend() == "amd" else "learning_rate"
-        self._kwargs[lr_key] = learning_rate
+        self._kwargs[lr_key] = self._scheduler or learning_rate
 
         if not autoclip:
             return
