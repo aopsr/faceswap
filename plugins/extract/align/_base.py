@@ -113,7 +113,8 @@ class Aligner(Extractor):  # pylint:disable=abstract-method
         self.set_normalize_method(normalize_method)
 
         self._plugin_type = "align"
-        self._filter = AlignedFilter(min_scale=self.config["aligner_min_scale"],
+        self._filter = AlignedFilter(feature_filter=self.config["aligner_features"],
+                                     min_scale=self.config["aligner_min_scale"],
                                      max_scale=self.config["aligner_max_scale"],
                                      distance=self.config["aligner_distance"],
                                      roll=self.config["aligner_roll"],
@@ -380,9 +381,45 @@ class Aligner(Extractor):  # pylint:disable=abstract-method
                     raise FaceswapError(msg) from err
             raise
 
+    def _get_mean_landmarks(self, landmarks: np.ndarray, masks: List[List[bool]]) -> np.ndarray:
+        """ Obtain the averaged landmarks from the re-fed alignments. If config option
+        'filter_refeed' is enabled, then average those results which have not been filtered out
+        otherwise average all results
+
+        Parameters
+        ----------
+        landmarks: :class:`numpy.ndarray`
+            The batch of re-fed alignments
+        masks: list
+            List of boolean values indicating whether each re-fed alignments passed or failed
+            the filter test
+
+        Returns
+        -------
+        :class:`numpy.ndarray`
+            The final averaged landmarks
+        """
+        if not self.config["filter_refeed"]:
+            return landmarks.mean(axis=0).astype("float32")
+
+        mask = np.array(masks)
+        if any(np.all(masked) for masked in mask.T):
+            # hacky fix for faces which entirely failed the filter
+            # We just unmask one value as it is junk anyway and will be discarded on output
+            for idx, masked in enumerate(mask.T):
+                if np.all(masked):
+                    mask[0, idx] = False
+
+        mask = np.broadcast_to(np.reshape(mask, (*landmarks.shape[:2], 1, 1)),
+                               landmarks.shape)
+        return np.ma.array(landmarks, mask=mask).mean(axis=0).data.astype("float32")
+
     def _process_output(self, batch: BatchType) -> AlignerBatch:
         """ Process the output from the aligner model multiple times based on the user selected
         `re-feed amount` configuration option, then average the results for final prediction.
+
+        If the config option 'filter_refeed' is enabled, then mask out any returned alignments
+        that fail a filter test
 
         Parameters
         ----------
@@ -395,7 +432,8 @@ class Aligner(Extractor):  # pylint:disable=abstract-method
             The batch item with :attr:`landmarks` populated
         """
         assert isinstance(batch, AlignerBatch)
-        landmarks = []
+        landmark_list: List[np.ndarray] = []
+        masks: List[List[bool]] = []
         for idx in range(self._re_feed + 1):
             # Create a pseudo object that only populates the data, feed and prediction slots with
             # the current re-feed iteration
@@ -407,8 +445,14 @@ class Aligner(Extractor):  # pylint:disable=abstract-method
                                     data=[batch.data[idx]],
                                     matrix=batch.matrices[idx])
             self.process_output(subbatch)
-            landmarks.append(subbatch.landmarks)
-        batch.landmarks = np.average(landmarks, axis=0)
+            landmark_list.append(subbatch.landmarks)
+
+            if self.config["filter_refeed"]:
+                fcs = [DetectedFace(landmarks_xy=lm) for lm in subbatch.landmarks.copy()]
+                min_sizes = [min(img.shape[:2]) for img in batch.image]
+                masks.append(self._filter.filtered_mask(fcs, min_sizes))
+
+        batch.landmarks = self._get_mean_landmarks(np.array(landmark_list), masks)
         return batch
 
     # <<< FACE NORMALIZATION METHODS >>> #
@@ -498,6 +542,9 @@ class AlignedFilter():
 
     Parameters
     ----------
+    feature_filter: bool
+        ``True`` to enable filter to check relative position of eyes/eyebrows and mouth. ``False``
+        to disable.
     min_scale: float
         Filters out faces that have been aligned at below this value as a multiplier of the
         minimum frame dimension. Set to ``0`` for off.
@@ -517,22 +564,33 @@ class AlignedFilter():
         ``True`` to disable the filter regardless of config options. Default: ``False``
     """
     def __init__(self,
+                 feature_filter: bool,
                  min_scale: float,
                  max_scale: float,
                  distance: float,
                  roll: float,
                  save_output: bool,
                  disable: bool = False) -> None:
-        logger.debug("Initializing %s: (min_scale: %s, max_scale: %s, distance: %s, roll, %s"
-                     "save_output: %s, disable: %s)", self.__class__.__name__, min_scale,
-                     max_scale, distance, roll, save_output, disable)
+        logger.debug("Initializing %s: (feature_filter: %s, min_scale: %s, max_scale: %s, "
+                     "distance: %s, roll, %s, save_output: %s, disable: %s)",
+                     self.__class__.__name__, feature_filter, min_scale, max_scale, distance, roll,
+                     save_output, disable)
+        self._features = feature_filter
         self._min_scale = min_scale
         self._max_scale = max_scale
         self._distance = distance / 100.
         self._roll = roll
         self._save_output = save_output
-        self._active = not disable and (max_scale > 0.0 or min_scale > 0.0 or distance > 0.0)
-        self._counts: Dict[str, int] = dict(min_scale=0, max_scale=0, distance=0, roll=0)
+        self._active = not disable and (feature_filter or
+                                        max_scale > 0.0 or
+                                        min_scale > 0.0 or
+                                        distance > 0.0 or
+                                        roll > 0.0)
+        self._counts: Dict[str, int] = dict(features=0,
+                                            min_scale=0,
+                                            max_scale=0,
+                                            distance=0,
+                                            roll=0)
         logger.debug("Initialized %s: ", self.__class__.__name__)
 
     def __call__(self, faces: List[DetectedFace], minimum_dimension: int
@@ -563,6 +621,13 @@ class AlignedFilter():
         for idx, face in enumerate(faces):
             aligned = AlignedFace(landmarks=face.landmarks_xy, centering="face")
 
+            if self._features and aligned.relative_eye_mouth_position < 0.0:
+                self._counts["features"] += 1
+                if self._save_output:
+                    retval.append(face)
+                    sub_folders[idx] = "_align_filt_features"
+                continue
+
             min_max = self._scale_test(aligned, minimum_dimension)
             if min_max in ("min", "max"):
                 self._counts[f"{min_max}_scale"] += 1
@@ -578,7 +643,7 @@ class AlignedFilter():
                     sub_folders[idx] = "_align_filt_distance"
                 continue
 
-            if not -self._roll <= aligned.pose.roll <= self._roll:
+            if self._roll != 0.0 and not 0.0 < abs(aligned.pose.roll) < self._roll:
                 self._counts["roll"] += 1
                 if self._save_output:
                     retval.append(face)
@@ -623,7 +688,7 @@ class AlignedFilter():
 
         return None
 
-    def filtered_mask(self, faces: List[DetectedFace], minimum_dimension: int) -> List[bool]:
+    def filtered_mask(self, faces: List[DetectedFace], minimum_dimension: List[int]) -> List[bool]:
         """ Obtain a list of boolean values for the given faces indicating whether they pass the
         filter test.
 
@@ -631,8 +696,8 @@ class AlignedFilter():
         ----------
         faces: list
             List of detected face objects to test the filters for
-        minimum_dimension: int
-            The minimum (height, width) of the original frame
+        minimum_dimension: list
+            The minimum (height, width) of the original frames that the faces come from
 
         Returns
         -------
@@ -641,13 +706,15 @@ class AlignedFilter():
             test. ``False`` the face passed the test. ``True`` it failed
         """
         retval = [True for _ in range(len(faces))]
-        for idx, face in enumerate(faces):
+        for idx, (face, dim) in enumerate(zip(faces, minimum_dimension)):
             aligned = AlignedFace(landmarks=face.landmarks_xy)
-            if self._scale_test(aligned, minimum_dimension) is not None:
+            if self._features and aligned.relative_eye_mouth_position < 0.0:
+                continue
+            if self._scale_test(aligned, dim) is not None:
                 continue
             if 0.0 < self._distance < aligned.average_distance:
                 continue
-            if not -self._roll <= aligned.pose.roll <= self._roll:
+            if self._roll != 0.0 and not 0.0 < abs(aligned.pose.roll) < self._roll:
                 continue
             retval[idx] = False
 
