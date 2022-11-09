@@ -185,7 +185,7 @@ class Config(FaceswapConfig):
             gui_radio=True,
             group="optimizer",
             default="adam",
-            choices=["adabelief", "adam", "nadam", "rms-prop"],
+            choices=["adabelief", "adam", "nadam", "adamw", "rms-prop"],
             info="The optimizer to use."
                  "\n\t adabelief - Adapting Stepsizes by the Belief in Observed Gradients. An "
                  "optimizer with the aim to converge faster, generalize better and remain more "
@@ -236,6 +236,16 @@ class Config(FaceswapConfig):
                  "to 0.001 (1e-3).")
         self.add_item(
             section=section,
+            title="warmup_steps",
+            datatype=int,
+            default=0,
+            min_max=(0, 1000),
+            rounding=1,
+            fixed=False,
+            group="optimizer",
+            info="Number of iters to warmup the learning rate to the target value.")
+        self.add_item(
+            section=section,
             title="autoclip",
             datatype=bool,
             default=False,
@@ -244,6 +254,15 @@ class Config(FaceswapConfig):
                  "data. Can help prevent NaNs and improve model optimization at the expense of "
                  "VRAM. Ref: AutoClip: Adaptive Gradient Clipping for Source Separation Networks "
                  "https://arxiv.org/abs/2007.14469",
+            fixed=False,
+            gui_radio=True,
+            group="optimizer")
+        self.add_item(
+            section=section,
+            title="cosine_annealing",
+            datatype=bool,
+            default=False,
+            info="Cosine annealing with warm restarts",
             fixed=False,
             gui_radio=True,
             group="optimizer")

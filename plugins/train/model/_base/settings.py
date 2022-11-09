@@ -311,7 +311,9 @@ class Optimizer():  # pylint:disable=too-few-public-methods
                  learning_rate: float,
                  autoclip: bool,
                  epsilon: float,
-                 accumulate: int) -> None:
+                 accumulate: int,
+                 annealing: bool,
+                 warmup: int) -> None:
         logger.debug("Initializing %s: (optimizer: %s, learning_rate: %s, autoclip: %s, "
                      ", epsilon: %s)", self.__class__.__name__, optimizer, learning_rate,
                      autoclip, epsilon)
@@ -328,17 +330,18 @@ class Optimizer():  # pylint:disable=too-few-public-methods
         self._optimizer: Callable = optimizer_info[0]
         self._kwargs: Dict[str, Any] = optimizer_info[1]
 
-        self._learning_rate: float = learning_rate
-        scheduler = tf.keras.optimizers.schedules.CosineDecayRestarts(
-                initial_learning_rate = learning_rate,
-                first_decay_steps = 1000,
-                alpha=0.5)
+        if annealing:
+            learning_rate = tf.keras.optimizers.schedules.CosineDecayRestarts(
+                    initial_learning_rate = learning_rate,
+                    first_decay_steps = 1000,
+                    alpha=0.5)
         
-        self._scheduler = LinearWarmup(
-            after_warmup_lr_sched = scheduler,
-            warmup_steps = 500,
-            warmup_learning_rate = 0.0,
-        )
+        if warmup:
+            learning_rate = LinearWarmup(
+                after_warmup_lr_sched = learning_rate,
+                warmup_steps = warmup,
+                warmup_learning_rate = 0.0,
+            )
 
         self._accumulate = accumulate
 
@@ -355,7 +358,7 @@ class Optimizer():  # pylint:disable=too-few-public-methods
         return opt
 
     def _configure(self,
-                   learning_rate: float,
+                   learning_rate,
                    autoclip: bool) -> None:
         """ Configure the optimizer based on user settings.
 
@@ -376,7 +379,7 @@ class Optimizer():  # pylint:disable=too-few-public-methods
         parameter for AMD backend users.
         """
         lr_key = "lr" if get_backend() == "amd" else "learning_rate"
-        self._kwargs[lr_key] = self._scheduler or learning_rate
+        self._kwargs[lr_key] = learning_rate
 
         if not autoclip:
             return
