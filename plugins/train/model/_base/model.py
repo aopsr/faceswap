@@ -450,7 +450,8 @@ class ModelBase():
         optimizer = Optimizer(self.config["optimizer"],
                               self.config["learning_rate"],
                               autoclip,
-                              10 ** int(self.config["epsilon_exponent"])).optimizer
+                              10 ** int(self.config["epsilon_exponent"]),
+                              self._args.accumulate).optimizer
         if self._settings.use_mixed_precision:
             optimizer = self._settings.loss_scale_optimizer(optimizer)
         if get_backend() == "amd":

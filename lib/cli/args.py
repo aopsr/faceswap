@@ -1031,6 +1031,17 @@ class TrainArgs(FaceSwapArgs):
                    "number of images within the model at any one time is double the number that "
                    "you set here. Larger batches require more GPU RAM.")))
         argument_list.append(dict(
+            opts=("-ga", "--gradient-accum"),
+            action=Slider,
+            min_max=(1, 16),
+            rounding=1,
+            type=int,
+            dest="accumulate",
+            default=1,
+            group=_("training"),
+            help=_("Gradient accumulation. Multiply the batch size by this number to get the effective batch size. "
+                   "This is useful for training with a small batch size on a GPU with limited memory.")))
+        argument_list.append(dict(
             opts=("-it", "--iterations"),
             action=Slider,
             min_max=(0, 5000000),
