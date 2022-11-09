@@ -5,27 +5,25 @@ import numpy as np
 
 from lib.model.session import KSession
 from lib.utils import get_backend
-from ._base import Masker, logger
+from ._base import Masker, logger, BatchType, MaskerBatch
 
 import pickle
 from pathlib import Path
+import cv2
 
 if get_backend() == "amd":
     from keras.layers import (
         Add, Conv2D, Conv2DTranspose, Cropping2D, Dropout, Input, Lambda, MaxPooling2D,
         ZeroPadding2D, Concatenate, Flatten, Reshape, Dense)
     from keras import backend as K
+    from keras import initializers
 else:
     # Ignore linting errors from Tensorflow's thoroughly broken import system
     from tensorflow.keras.layers import (  # pylint:disable=no-name-in-module,import-error
         Add, Conv2D, Conv2DTranspose, Cropping2D, Dropout, Input, Lambda, MaxPooling2D,
         ZeroPadding2D, Concatenate, Flatten, Reshape, Dense, Layer, Permute)
     from tensorflow.keras import backend as K
-    import tensorflow_addons as tfa
-    from tensorflow import keras
-    from tensorflow import Variable
-    import tensorflow as tf
-
+    from tensorflow.keras import initializers
 
 class Mask(Masker):
     """ Neural network to process face image into a segmentation mask of the face """
@@ -45,28 +43,42 @@ class Mask(Masker):
         self.model = Xseg(self.model_path,
                               allow_growth=self.config["allow_growth"],
                               exclude_gpus=self._exclude_gpus)
-        #self.model.append_softmax_activation(layer_index=-1)
         placeholder = np.zeros((self.batchsize, self.input_size, self.input_size, 3),
                                dtype="float32")
         self.model.predict(placeholder)
 
-    def process_input(self, batch):
+    def process_input(self, batch: BatchType) -> None:
         """ Compile the detected faces for prediction """
-        batch["feed"] = np.array([feed.face[..., :3]
-                                    for feed in batch["feed_faces"]],
+        batch.feed = np.array([feed.extract_face_xseg()[..., :3]
+                                    for feed in batch.feed_faces],
                                    dtype="float32") / 255.0
-        
-        logger.trace("feed shape: %s", batch["feed"].shape)
-        return batch
 
-    def predict(self, batch):
+        logger.trace("feed shape: %s", batch.feed.shape)
+
+    def predict(self, feed: np.ndarray) -> np.ndarray:
         """ Run model to get predictions """
-        predictions = self.model.predict(batch["feed"])
-        batch["prediction"] = predictions[..., -1]
-        return batch
+        return self.model.predict(feed)[..., -1]
 
     def process_output(self, batch):
         """ Compile found faces for output """
+
+        # convert dfl wf to fs face
+
+        masks = []
+        for prediction, feed in zip(batch.prediction, batch.feed_faces):
+            matrix = feed.matrix.copy()
+            padding = feed._padding_from_coverage(256, 1.0)["face"]
+            matrix = matrix * (256 - 2 * padding)
+            matrix[:, 2] += padding
+
+            transform_matrix = np.dot(np.append(matrix, [[0,0,1]], axis=0), np.append(cv2.invertAffineTransform(feed._xseg_matrix), [[0,0,1]], axis=0))[0:2]
+            prediction[prediction < 0.1] = 0
+            mask = cv2.warpAffine(prediction, transform_matrix, (256, 256), cv2.INTER_CUBIC)
+            mask[mask<0.5] = 0
+            mask[mask>=0.5] = 1
+            masks.append(mask)
+
+        batch.prediction = np.array(masks)
         return batch
     
 class FRNorm2D(Layer):
@@ -78,17 +90,17 @@ class FRNorm2D(Layer):
         self.weight = self.add_weight(
             shape=(self.in_ch,),
             name="weight",
-            initializer=keras.initializers.Ones()
+            initializer=initializers.Ones()
         )
         self.bias = self.add_weight(
             shape=(self.in_ch,),
             name="bias",
-            initializer=keras.initializers.Zeros()
+            initializer=initializers.Zeros()
         )
         self.eps = self.add_weight(
             shape=(1,),
             name="eps",
-            initializer=keras.initializers.Constant(1e-6)
+            initializer=initializers.Constant(1e-6)
         )
         self.built = True
 
@@ -96,7 +108,7 @@ class FRNorm2D(Layer):
         shape = (1, 1, 1, self.in_ch)
         weight       = K.reshape ( self.weight, shape )
         bias         = K.reshape ( self.bias  , shape )
-        nu2 = tf.math.reduce_mean(K.square(x), axis=[1,2], keepdims=True)
+        nu2 = K.mean(K.square(x), axis=[1,2], keepdims=True)
         x = x * ( 1.0/K.sqrt(nu2 + K.abs(self.eps) ) )
 
         return x*weight + bias
@@ -105,7 +117,7 @@ class TLU(Layer):
     def __init__(self, in_ch, **kwargs):
         super().__init__(**kwargs)
         self.in_ch = in_ch
-        self.tau_initializer = keras.initializers.Zeros()
+        self.tau_initializer = initializers.Zeros()
     
     def build(self, input_shape):
         self.tau = self.add_weight(
@@ -116,15 +128,13 @@ class TLU(Layer):
         self.built = True
 
     def call(self, inputs):
-        return tf.maximum(inputs, self.tau)
+        return K.maximum(inputs, self.tau)
 
 class ConvBlock(Layer):
     def __init__(self, in_ch, out_ch, name):
         self.conv = Conv2D (out_ch, kernel_size=3, padding='same', name=name+"/conv")
         self.frn = FRNorm2D(out_ch, name=name+"/frn")
-        #self.frn = tfa.layers.FilterResponseNormalization(epsilon=0, learned_epsilon=True, name=name+"/frn")
         self.tlu = TLU(out_ch, name=name+"/tlu")
-        #self.tlu = tfa.layers.TLU(name=name+"/tlu")
 
     def __call__(self, x):                
         x = self.conv(x)
@@ -152,8 +162,7 @@ class BlurPool(Layer):
         self.filt_size = filt_size
         pad = [ int(1.*(filt_size-1)/2), int(np.ceil(1.*(filt_size-1)/2)) ]
 
-        #self.padding = [ pad, pad ]
-        self.padding = [ [0,0], pad, pad, [0,0] ]
+        self.padding = [ pad, pad ]
 
         if(self.filt_size==1):
             a = np.array([1.,])
@@ -178,8 +187,7 @@ class BlurPool(Layer):
 
     def __call__(self, x):
         k = K.tile (self.k, (1,1,x.shape[3],1) )
-        #x = K.spatial_2d_padding(x, padding=self.padding)
-        x = tf.pad(x, self.padding)
+        x = K.spatial_2d_padding(x, padding=self.padding)
         x = K.depthwise_conv2d(x, k, strides=self.strides, padding='valid')
         return x
 
@@ -353,5 +361,5 @@ class Xseg(KSession):
         x = uconv01(x)
 
         logits = out_conv(x)
-        mask = K.round(K.sigmoid(logits))
-        return input_, mask
+
+        return input_, K.sigmoid(logits)

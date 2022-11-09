@@ -135,6 +135,13 @@ class DetectedFace():
         """int: Bottom point (in pixels) of face detection bounding box within the parent image """
         assert self.top is not None and self.height is not None
         return self.top + self.height
+    
+    def scale_face(self, scale) -> None:
+        self.left = int(self.left * scale)
+        self.width = int(self.width * scale)
+        self.top = int(self.top * scale)
+        self.height = int(self.height * scale)
+        self._landmarks_xy *= scale
 
     @property
     def identity(self) -> Dict[str, np.ndarray]:
@@ -1079,7 +1086,8 @@ def update_legacy_png_header(filename: str, alignments: Alignments
                             original_filename=orig_filename,
                             face_index=face_idx,
                             source_filename=src_fname,
-                            source_is_video=False))  # Can't check so set false
+                            source_is_video=False,  # Can't check so set false
+                            source_frame_dims=None))
 
     out_filename = f"{os.path.splitext(filename)[0]}.png"  # Make sure saved file is png
     out_image = encode_image(in_image, ".png", metadata=meta)

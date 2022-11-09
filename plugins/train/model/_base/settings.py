@@ -310,7 +310,8 @@ class Optimizer():  # pylint:disable=too-few-public-methods
                  optimizer: str,
                  learning_rate: float,
                  autoclip: bool,
-                 epsilon: float) -> None:
+                 epsilon: float,
+                 accumulate: int) -> None:
         logger.debug("Initializing %s: (optimizer: %s, learning_rate: %s, autoclip: %s, "
                      ", epsilon: %s)", self.__class__.__name__, optimizer, learning_rate,
                      autoclip, epsilon)
@@ -326,6 +327,7 @@ class Optimizer():  # pylint:disable=too-few-public-methods
         optimizer_info = valid_optimizers[optimizer]
         self._optimizer: Callable = optimizer_info[0]
         self._kwargs: Dict[str, Any] = optimizer_info[1]
+
         self._learning_rate: float = learning_rate
         scheduler = tf.keras.optimizers.schedules.CosineDecayRestarts(
                 initial_learning_rate = learning_rate,
@@ -338,6 +340,8 @@ class Optimizer():  # pylint:disable=too-few-public-methods
             warmup_learning_rate = 0.0,
         )
 
+        self._accumulate = accumulate
+
         self._configure(learning_rate, autoclip)
         logger.verbose("Using %s optimizer", optimizer.title())  # type:ignore
         logger.debug("Initialized: %s", self.__class__.__name__)
@@ -345,7 +349,10 @@ class Optimizer():  # pylint:disable=too-few-public-methods
     @property
     def optimizer(self) -> keras.optimizers.Optimizer:
         """ :class:`keras.optimizers.Optimizer`: The requested optimizer. """
-        return self._optimizer(**self._kwargs)
+        opt = self._optimizer(**self._kwargs)
+        if self._accumulate - 1:
+            optimizers.convert_to_accumulate_gradient_optimizer(opt, self._accumulate)
+        return opt
 
     def _configure(self,
                    learning_rate: float,

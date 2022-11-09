@@ -16,8 +16,8 @@ from lib.gpu_stats import GPUStats
 
 from plugins.plugin_loader import PluginLoader
 
-from .actions import (DirFullPaths, DirOrFileFullPaths, FileFullPaths, FilesFullPaths, MultiOption,
-                      Radio, SaveFileFullPaths, Slider)
+from .actions import (DirFullPaths, DirOrFileFullPaths, DirOrFilesFullPaths, FileFullPaths,
+                      FilesFullPaths, MultiOption, Radio, SaveFileFullPaths, Slider)
 from .launcher import ScriptExecutor
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -515,30 +515,28 @@ class ExtractArgs(ExtractConvertArgs):
                    "diagonal of the bounding box. Set to 0 for off")))
         argument_list.append(dict(
             opts=("-n", "--nfilter"),
-            action=FilesFullPaths,
+            action=DirOrFilesFullPaths,
             filetypes="image",
             dest="nfilter",
             default=None,
             nargs="+",
             group=_("Face Processing"),
-            help=_("Optionally filter out people who you do not wish to process by passing in an "
-                   "image of that person. Should be a front portrait with a single person in the "
-                   "image. Multiple images can be added space separated. NB: Using face filter "
-                   "will significantly decrease extraction speed and its accuracy cannot be "
-                   "guaranteed.")))
+            help=_("Optionally filter out people who you do not wish to extract by passing in "
+                   "images of those people. Should be a small variety of images at different "
+                   "angles and in different conditions. A folder containing the required images "
+                   "or multiple image files, space separated, can be selected.")))
         argument_list.append(dict(
             opts=("-f", "--filter"),
-            action=FilesFullPaths,
+            action=DirOrFilesFullPaths,
             filetypes="image",
             dest="filter",
             default=None,
             nargs="+",
             group=_("Face Processing"),
-            help=_("Optionally select people you wish to process by passing in an image of that "
-                   "person. Should be a front portrait with a single person in the image. "
-                   "Multiple images can be added space separated. NB: Using face filter will "
-                   "significantly decrease extraction speed and its accuracy cannot be "
-                   "guaranteed.")))
+            help=_("Optionally select people you wish to extract by passing in images of that "
+                   "person. Should be a small variety of images at different angles and in "
+                   "different conditions A folder containing the required images or multiple "
+                   "image files, space separated, can be selected.")))
         argument_list.append(dict(
             opts=("-l", "--ref_threshold"),
             action=Slider,
@@ -546,12 +544,10 @@ class ExtractArgs(ExtractConvertArgs):
             rounding=2,
             type=float,
             dest="ref_threshold",
-            default=0.4,
+            default=0.60,
             group=_("Face Processing"),
             help=_("For use with the optional nfilter/filter files. Threshold for positive face "
-                   "recognition. Lower values are stricter. NB: Using face filter will "
-                   "significantly decrease extraction speed and its accuracy cannot be "
-                   "guaranteed.")))
+                   "recognition. Higher values are stricter.")))
         argument_list.append(dict(
             opts=("-sz", "--size"),
             action=Slider,
@@ -785,6 +781,16 @@ class ConvertArgs(ExtractConvertArgs):
                    "--frame-ranges 10-50 90-100. Frames falling outside of the selected range "
                    "will be discarded unless '-k' (--keep-unchanged) is selected. NB: If you are "
                    "converting from images, then the filenames must end with the frame-number!")))
+        argument_list.append(dict(
+            opts=("-ms", "--max-scale"),
+            action=Slider,
+            min_max=(0.0, 5.0),
+            rounding=1,
+            type=float,
+            dest=("max_scale"),
+            default=0.0,
+            group=_("Frame Processing"),
+            help=_("Max scale of converted face relative to model output size. Resizes frame to match dest face size. Set to 0 to keep frames unchanged.")))
         argument_list.append(dict(
             opts=("-a", "--input-aligned-dir"),
             action=DirFullPaths,
@@ -1024,6 +1030,17 @@ class TrainArgs(FaceSwapArgs):
                    "side per iteration. NB: As the model is fed 2 sides at a time, the actual "
                    "number of images within the model at any one time is double the number that "
                    "you set here. Larger batches require more GPU RAM.")))
+        argument_list.append(dict(
+            opts=("-ga", "--gradient-accum"),
+            action=Slider,
+            min_max=(1, 16),
+            rounding=1,
+            type=int,
+            dest="accumulate",
+            default=1,
+            group=_("training"),
+            help=_("Gradient accumulation. Multiply the batch size by this number to get the effective batch size. "
+                   "This is useful for training with a small batch size on a GPU with limited memory.")))
         argument_list.append(dict(
             opts=("-it", "--iterations"),
             action=Slider,
