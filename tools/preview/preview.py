@@ -432,6 +432,8 @@ class Patch():
         self._converter = Converter(output_size=self._samples.predictor.output_size,
                                     coverage_ratio=self._samples.predictor.coverage_ratio,
                                     centering=self._samples.predictor.centering,
+                                    max_scale=0,
+                                    is_video=True,
                                     draw_transparent=False,
                                     pre_encode=None,
                                     arguments=self._generate_converter_arguments(arguments,

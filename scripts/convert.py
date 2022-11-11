@@ -731,7 +731,7 @@ class Predict():
         self._sizes = self._get_io_sizes()
         self._coverage_ratio = self._model.coverage_ratio
         self._centering = self._model.config["centering"]
-        self._max_scale = self._args.max_scale
+        self._max_scale = self._args.max_scale if hasattr(self._args, "max_scale") else 0
 
         self._thread = self._launch_predictor()
         logger.debug("Initialized %s: (out_queue: %s)", self.__class__.__name__, self._out_queue)
