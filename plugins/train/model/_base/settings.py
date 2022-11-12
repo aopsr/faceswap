@@ -333,9 +333,9 @@ class Optimizer():  # pylint:disable=too-few-public-methods
         if annealing:
             learning_rate = tf.keras.optimizers.schedules.CosineDecayRestarts(
                     initial_learning_rate = learning_rate,
-                    first_decay_steps = 1000,
-                    alpha=0.6,
-                    t_mul=1.0)
+                    first_decay_steps = 10,
+                    alpha=0,
+                    t_mul=2.0)
         
         if warmup:
             learning_rate = LinearWarmup(
