@@ -486,7 +486,7 @@ class ExtractArgs(ExtractConvertArgs):
                    "times the face is re-fed into the aligner, the less micro-jitter should occur "
                    "but the longer extraction will take.")))
         argument_list.append(dict(
-            opts=("-sp", "--second-pass"),
+            opts=("-sec", "--second-pass"),
             action="store_true",
             default=False,
             group=_("Plugins"),
