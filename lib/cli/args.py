@@ -486,6 +486,12 @@ class ExtractArgs(ExtractConvertArgs):
                    "times the face is re-fed into the aligner, the less micro-jitter should occur "
                    "but the longer extraction will take.")))
         argument_list.append(dict(
+            opts=("-sp", "--second-pass"),
+            action="store_true",
+            default=False,
+            group=_("Plugins"),
+            help=_("2nd pass alignments")))
+        argument_list.append(dict(
             opts=("-r", "--rotate-images"),
             type=str,
             dest="rotate_images",

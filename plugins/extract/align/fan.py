@@ -64,29 +64,30 @@ class Align(Aligner):
         faces = self._normalize_faces(faces)
         batch.data.append(dict(center_scale=center_scale))
 
-        # first pass
-        prediction = np.array(self.predict(np.array(faces, dtype="float32")[..., :3] / 255.0))
+        if self._second_pass:
+            # first pass
+            prediction = np.array(self.predict(np.array(faces, dtype="float32")[..., :3] / 255.0))
 
-        subbatch = AlignerBatch(image=batch.image,
-                                    detected_faces=batch.detected_faces,
-                                    filename=batch.filename,
-                                    prediction=prediction,
-                                    data=[dict(center_scale=center_scale)])
+            subbatch = AlignerBatch(image=batch.image,
+                                        detected_faces=batch.detected_faces,
+                                        filename=batch.filename,
+                                        prediction=prediction,
+                                        data=[dict(center_scale=center_scale)])
 
-        self.process_output(subbatch)
-        faces = []
-        matrices = []
-        for landmarks, image in zip(subbatch.landmarks, subbatch.image):
-            matrix = af.get_transform_mat(landmarks, 256, False)
-            matrices.append(matrix)
-            face = cv2.warpAffine(image, matrix, (256, 256), flags=cv2.INTER_CUBIC)
-            faces.append(face)
-        
-        faces = self._normalize_faces(faces)
+            self.process_output(subbatch)
+            faces = []
+            matrices = []
+            for landmarks, image in zip(subbatch.landmarks, subbatch.image):
+                matrix = af.get_transform_mat(landmarks, 256, False)
+                matrices.append(matrix)
+                face = cv2.warpAffine(image, matrix, (256, 256), flags=cv2.INTER_CUBIC)
+                faces.append(face)
+            
+            faces = self._normalize_faces(faces)
+            batch.matrix = matrices
         
         # second pass
         batch.feed = np.array(faces, dtype="float32")[..., :3] / 255.0
-        batch.matrix = matrices
 
     def get_center_scale(self, detected_faces: List["DetectedFace"]) -> np.ndarray:
         """ Get the center and set scale of bounding box

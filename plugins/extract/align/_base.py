@@ -100,6 +100,7 @@ class Aligner(Extractor):  # pylint:disable=abstract-method
                  normalize_method: Optional[Literal["none", "clahe", "hist", "mean"]] = None,
                  re_feed: int = 0,
                  disable_filter: bool = False,
+                 second_pass: bool = False,
                  **kwargs) -> None:
         logger.debug("Initializing %s: (normalize_method: %s, re_feed: %s, disable_filter: %s)",
                      self.__class__.__name__, normalize_method, re_feed, disable_filter)
@@ -110,6 +111,7 @@ class Aligner(Extractor):  # pylint:disable=abstract-method
                          **kwargs)
         self._normalize_method: Optional[Literal["clahe", "hist", "mean"]] = None
         self._re_feed = re_feed
+        self._second_pass = second_pass
         self.set_normalize_method(normalize_method)
 
         self._plugin_type = "align"
