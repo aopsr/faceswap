@@ -1024,6 +1024,13 @@ class TrainArgs(FaceSwapArgs):
                    "encoder, but some models may have configuration options for freezing other "
                    "layers.")))
         argument_list.append(dict(
+            opts=("-pre", "--pretrain"),
+            action="store_true",
+            dest="pretrain",
+            default=False,
+            group= ("model"),
+            help= ("Pretraining")))
+        argument_list.append(dict(
             opts=("-bs", "--batch-size"),
             action=Slider,
             min_max=(1, 256),

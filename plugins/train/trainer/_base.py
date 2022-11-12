@@ -79,6 +79,7 @@ class TrainerBase():
                  model: "ModelBase",
                  images: Dict[Literal["a", "b"], List[str]],
                  batch_size: int,
+                 pretrain: bool,
                  configfile: Optional[str]) -> None:
         logger.debug("Initializing %s: (model: '%s', batch_size: %s)",
                      self.__class__.__name__, model, batch_size)
@@ -89,7 +90,9 @@ class TrainerBase():
         self._images = images
         self._sides = sorted(key for key in self._images.keys())
 
-        self._feeder = _Feeder(images, self._model, batch_size, self._config)
+        self._pretrain = pretrain
+
+        self._feeder = _Feeder(images, self._model, batch_size, pretrain, self._config)
 
         self._tensorboard = self._set_tensorboard()
         self._samples = _Samples(self._model, self._model.coverage_ratio)
@@ -383,6 +386,7 @@ class _Feeder():
                  images: Dict[Literal["a", "b"], List[str]],
                  model: 'ModelBase',
                  batch_size: int,
+                 pretrain: bool,
                  config: ConfigType) -> None:
         logger.debug("Initializing %s: num_images: %s, batch_size: %s, config: %s)",
                      self.__class__.__name__, {k: len(v) for k, v in images.items()}, batch_size,
@@ -390,6 +394,7 @@ class _Feeder():
         self._model = model
         self._images = images
         self._batch_size = batch_size
+        self._pretrain = pretrain
         self._config = config
         self._feeds = {side: self._load_generator(side, False).minibatch_ab()
                        for side in get_args(Literal["a", "b"])}
@@ -430,7 +435,8 @@ class _Feeder():
                            self._model,
                            side,
                            self._images[side] if images is None else images,
-                           self._batch_size if batch_size is None else batch_size)
+                           self._batch_size if batch_size is None else batch_size,
+                           self._pretrain)
         return retval
 
     def _set_preview_feed(self) -> Dict[Literal["a", "b"], Generator[BatchType, None, None]]:

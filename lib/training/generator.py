@@ -61,7 +61,8 @@ class DataGenerator():
                  model: "ModelBase",
                  side: Literal["a", "b"],
                  images: List[str],
-                 batch_size: int) -> None:
+                 batch_size: int,
+                 pretrain: bool) -> None:
         logger.debug("Initializing %s: (model: %s, side: %s, images: %s , "  # type: ignore
                      "batch_size: %s, config: %s)", self.__class__.__name__, model.name, side,
                      len(images), batch_size, config)
@@ -69,6 +70,7 @@ class DataGenerator():
         self._side = side
         self._images = images
         self._batch_size = batch_size
+        self._pretrain = pretrain
 
         self._process_size = max(img[1] for img in model.input_shapes + model.output_shapes)
         self._output_sizes = self._get_output_sizes(model)
@@ -420,13 +422,20 @@ class TrainingDataGenerator(DataGenerator):  # pylint:disable=too-few-public-met
                  model: "ModelBase",
                  side: Literal["a", "b"],
                  images: List[str],
-                 batch_size: int) -> None:
-        super().__init__(config, model, side, images, batch_size)
-        self._augment_color = not model.command_line_arguments.no_augment_color
-        self._no_flip = model.command_line_arguments.no_flip
-        self._no_warp = model.command_line_arguments.no_warp
-        self._warp_to_landmarks = (not self._no_warp
-                                   and model.command_line_arguments.warp_to_landmarks)
+                 batch_size: int,
+                 pretrain: bool) -> None:
+        super().__init__(config, model, side, images, batch_size, pretrain)
+        if pretrain:
+            self._augment_color = False
+            self._no_flip = False
+            self._no_warp = True
+            self._warp_to_landmarks = False
+        else:
+            self._augment_color = not model.command_line_arguments.no_augment_color
+            self._no_flip = model.command_line_arguments.no_flip
+            self._no_warp = model.command_line_arguments.no_warp
+            self._warp_to_landmarks = (not self._no_warp
+                                    and model.command_line_arguments.warp_to_landmarks)
 
         if self._warp_to_landmarks:
             self._face_cache.pre_fill(images, side)
