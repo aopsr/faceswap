@@ -17,6 +17,7 @@ from lib.align.aligned_face import CenteringType
 from lib.image import read_image_batch
 from lib.multithreading import BackgroundGenerator
 from lib.utils import FaceswapError
+from plugins.plugin_loader import PluginLoader
 
 from . import ImageAugmentation
 from .cache import get_cache, RingBuffer
@@ -62,7 +63,7 @@ class DataGenerator():
                  side: Literal["a", "b"],
                  images: List[str],
                  batch_size: int,
-                 pretrain: bool) -> None:
+                 *args) -> None:
         logger.debug("Initializing %s: (model: %s, side: %s, images: %s , "  # type: ignore
                      "batch_size: %s, config: %s)", self.__class__.__name__, model.name, side,
                      len(images), batch_size, config)
@@ -70,7 +71,6 @@ class DataGenerator():
         self._side = side
         self._images = images
         self._batch_size = batch_size
-        self._pretrain = pretrain
 
         self._process_size = max(img[1] for img in model.input_shapes + model.output_shapes)
         self._output_sizes = self._get_output_sizes(model)
@@ -395,6 +395,8 @@ class DataGenerator():
                            local_dict=dict(x=in_array, c=np.float32(255)),
                            casting="unsafe")
 
+    def _to_uint8(self, in_array: np.ndarray) -> np.ndarray:
+        return (in_array * 255).astype(np.uint8)
 
 class TrainingDataGenerator(DataGenerator):  # pylint:disable=too-few-public-methods
     """ A Training Data Generator for compiling data for feeding to a model.
@@ -423,20 +425,29 @@ class TrainingDataGenerator(DataGenerator):  # pylint:disable=too-few-public-met
                  side: Literal["a", "b"],
                  images: List[str],
                  batch_size: int,
-                 pretrain: bool) -> None:
-        super().__init__(config, model, side, images, batch_size, pretrain)
+                 pretrain: bool,
+                 color_transfer: str) -> None:
+        super().__init__(config, model, side, images, batch_size)
         if pretrain:
             self._augment_color = False
             self._no_flip = False
             self._no_warp = True
             self._warp_to_landmarks = False
+            self._color_transfer = None
         else:
             self._augment_color = not model.command_line_arguments.no_augment_color
             self._no_flip = model.command_line_arguments.no_flip
             self._no_warp = model.command_line_arguments.no_warp
+            if color_transfer != "none":
+                self._color_transfer = PluginLoader.get_converter(
+                    "color", color_transfer)()
+            else:
+                self._color_transfer = None
             self._warp_to_landmarks = (not self._no_warp
                                     and model.command_line_arguments.warp_to_landmarks)
 
+        self._reference_faces = None
+        self._reference_masks = None
         if self._warp_to_landmarks:
             self._face_cache.pre_fill(images, side)
         self._processing = ImageAugmentation(batch_size,
@@ -444,6 +455,18 @@ class TrainingDataGenerator(DataGenerator):  # pylint:disable=too-few-public-met
                                              self._config)
         self._nearest_landmarks: Dict[str, Tuple[str, ...]] = {}
         logger.debug("Initialized %s", self.__class__.__name__)
+    
+    def set_reference(self, targets):
+        self._reference_faces = targets[..., :3]
+        self._reference_masks = targets[..., 3][..., None]
+    
+    @property
+    def reference_faces(self):
+        return self._reference_faces
+    
+    @property
+    def reference_masks(self):
+        return self._reference_masks
 
     def _create_targets(self, batch: np.ndarray) -> List[np.ndarray]:
         """ Compile target images, with masks, for the model output sizes.
@@ -473,6 +496,38 @@ class TrainingDataGenerator(DataGenerator):  # pylint:disable=too-few-public-met
                       for size in self._output_sizes]
         logger.trace("Processed targets: %s", [t.shape for t in retval])  # type: ignore
         return retval
+    
+    def _process_batch(self, filenames: List[str]) -> BatchType:
+        """ Prepares data for feeding through subclassed methods.
+
+        If this is the first time a face has been loaded, then it's meta data is extracted from the
+        png header and added to :attr:`_face_cache`
+
+        Parameters
+        ----------
+        filenames: list
+            List of full paths to image file names for a single batch
+
+        Returns
+        -------
+        :class:`numpy.ndarray`
+            4-dimensional array of faces to feed the training the model.
+        list
+            List of 4-dimensional :class:`numpy.ndarray`. The number of channels here will vary.
+            The first 3 channels are (rgb/bgr). The 4th channel is the face mask. Any subsequent
+            channels are area masks (e.g. eye/mouth masks)
+        """
+        raw_faces, detected_faces = self._get_images_with_meta(filenames)
+        batch = self._buffer()
+        self._crop_to_coverage(filenames, raw_faces, detected_faces, batch)
+        self._apply_mask(detected_faces, batch)
+        feed, targets, orig = self.process_batch(filenames, raw_faces, detected_faces, batch)
+
+        logger.trace("Processed %s batch side %s. (filenames: %s, feed: %s, "  # type: ignore
+                     "targets: %s)", self.__class__.__name__, self._side, filenames,
+                     feed.shape, [t.shape for t in targets])
+
+        return feed, targets, orig
 
     def process_batch(self,
                       filenames: List[str],
@@ -511,6 +566,16 @@ class TrainingDataGenerator(DataGenerator):  # pylint:disable=too-few-public-met
         logger.trace("Process training: (side: '%s', filenames: '%s', images: %s, "  # type:ignore
                      "batch: %s, detected_faces: %s)", self._side, filenames, images.shape,
                      batch.shape, len(detected_faces))
+
+        # NOTE: better to just begin with float32
+
+        # color
+        logger.debug(self._color_transfer)
+        if self._color_transfer and self.reference_faces is not None and self.reference_masks is not None:
+            self._transfer_color(batch) # assumes BGR from face A. If model is RGB, need to change
+            orig = None
+        else:
+            orig = batch[..., :4].copy()
 
         # Color Augmentation of the image only
         if self._augment_color:
@@ -551,7 +616,26 @@ class TrainingDataGenerator(DataGenerator):  # pylint:disable=too-few-public-met
         else:
             feed = self._to_float32(warped)
 
-        return feed, targets
+        return feed, targets, orig
+    
+    def _transfer_color(self, batch: np.ndarray) -> np.ndarray:
+        """ Transfer the color from the source image to the destination image.
+
+        Parameters
+        ----------
+        batch: :class:`numpy.ndarray`
+            The batch of faces to transfer color from
+
+        Returns
+        -------
+        :class:`numpy.ndarray`
+            The batch of faces with color transfer applied
+        """
+        
+        for i in range(batch.shape[0]):
+            batch[i,..., :3] = self._to_uint8(self._color_transfer.process(
+                self._to_float32(self.reference_faces[i]), self._to_float32(batch[i, ..., :3]), 
+                self.reference_masks[i], batch[i, ..., 3][..., None]))
 
     def _get_closest_match(self, filenames: List[str], batch_src_points: np.ndarray) -> np.ndarray:
         """ Only called if the :attr:`_warp_to_landmarks` is ``True``. Gets the closest

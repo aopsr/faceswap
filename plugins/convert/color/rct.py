@@ -6,6 +6,8 @@ from ._base import Adjustment
 class Color(Adjustment):
     def process(self, source, target, src_mask, target_mask=None) -> np.ndarray:
         """
+        Adapted from https://github.com/iperov/DeepFaceLab/blob/master/core/imagelib/color_transfer.py
+
         Transfer color using rct method.
 
             source      np.ndarray H W 3C   (BGR)   np.float32

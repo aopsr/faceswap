@@ -1094,6 +1094,15 @@ class TrainArgs(FaceSwapArgs):
                    "GPUs. A copy of the model and all variables are loaded onto each GPU with "
                    "batches distributed to each GPU at each iteration.")))
         argument_list.append(dict(
+            opts=("-ct", "--color-transfer"),
+            dest="color_transfer",
+            action=Radio,
+            type=str.lower,
+            choices=["none", "rct"], #PluginLoader.get_available_convert_plugins("color"),
+            default="none",
+            group=_("training"),
+            help=_("Color transfer samples to reduce color mismatch")))
+        argument_list.append(dict(
             opts=("-s", "--save-interval"),
             action=Slider,
             min_max=(10, 1000),

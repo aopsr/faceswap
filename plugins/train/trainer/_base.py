@@ -80,6 +80,7 @@ class TrainerBase():
                  images: Dict[Literal["a", "b"], List[str]],
                  batch_size: int,
                  pretrain: bool,
+                 color_transfer: str,
                  configfile: Optional[str]) -> None:
         logger.debug("Initializing %s: (model: '%s', batch_size: %s)",
                      self.__class__.__name__, model, batch_size)
@@ -91,8 +92,9 @@ class TrainerBase():
         self._sides = sorted(key for key in self._images.keys())
 
         self._pretrain = pretrain
+        self._color_transfer = color_transfer
 
-        self._feeder = _Feeder(images, self._model, batch_size, pretrain, self._config)
+        self._feeder = _Feeder(images, self._model, batch_size, pretrain, color_transfer, self._config)
 
         self._tensorboard = self._set_tensorboard()
         self._samples = _Samples(self._model, self._model.coverage_ratio)
@@ -387,6 +389,7 @@ class _Feeder():
                  model: 'ModelBase',
                  batch_size: int,
                  pretrain: bool,
+                 color_transfer: str,
                  config: ConfigType) -> None:
         logger.debug("Initializing %s: num_images: %s, batch_size: %s, config: %s)",
                      self.__class__.__name__, {k: len(v) for k, v in images.items()}, batch_size,
@@ -395,8 +398,11 @@ class _Feeder():
         self._images = images
         self._batch_size = batch_size
         self._pretrain = pretrain
+        self._color_transfer = color_transfer
         self._config = config
-        self._feeds = {side: self._load_generator(side, False).minibatch_ab()
+        self._generators = {side: self._load_generator(side, False)
+                       for side in get_args(Literal["a", "b"])}
+        self._feeds = {side: self._generators[side].minibatch_ab()
                        for side in get_args(Literal["a", "b"])}
 
         self._display_feeds = dict(preview=self._set_preview_feed(), timelapse={})
@@ -436,7 +442,8 @@ class _Feeder():
                            side,
                            self._images[side] if images is None else images,
                            self._batch_size if batch_size is None else batch_size,
-                           self._pretrain)
+                           self._pretrain,
+                           self._color_transfer if side == "b" and not is_display else "none")
         return retval
 
     def _set_preview_feed(self) -> Dict[Literal["a", "b"], Generator[BatchType, None, None]]:
@@ -476,7 +483,9 @@ class _Feeder():
         model_inputs: List[List[np.ndarray]] = []
         model_targets: List[List[np.ndarray]] = []
         for side in ("a", "b"):
-            side_feed, side_targets = next(self._feeds[side])
+            side_feed, side_targets, orig = next(self._feeds[side])
+            if side == "a":
+                self._generators["b"].set_reference(orig)
             if self._model.config["learn_mask"]:  # Add the face mask as it's own target
                 side_targets += [side_targets[-1][..., 3][..., None]]
             logger.trace("side: %s, input_shapes: %s, target_shapes: %s",  # type: ignore

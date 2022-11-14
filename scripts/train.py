@@ -70,6 +70,7 @@ class Train():  # pylint:disable=too-few-public-methods
         self._save_now: bool = False
         self._preview = PreviewInterface(self._args.preview)
         self._pretrain = self._args.pretrain
+        self._color_transfer = self._args.color_transfer
 
         logger.debug("Initialized %s", self.__class__.__name__)
 
@@ -317,6 +318,7 @@ class Train():  # pylint:disable=too-few-public-methods
                                       self._images,
                                       self._args.batch_size,
                                       self._pretrain,
+                                      self._color_transfer,
                                       self._args.configfile)
         logger.debug("Loaded Trainer")
         return trainer
