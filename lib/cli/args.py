@@ -709,6 +709,13 @@ class ConvertArgs(ExtractConvertArgs):
                    "very satisfactory results."
                    "\nL|none: Don't perform color adjustment.")))
         argument_list.append(dict(
+            opts=("-iem", "--ignore_eye_mouth"),
+            action="store_true",
+            dest="ignore_eye_mouth",
+            default=False,
+            group=_("Plugins"),
+            help=_("Ignore eye and mouth regions when determining face color distribution.")))
+        argument_list.append(dict(
             opts=("-M", "--mask-type"),
             action=Radio,
             type=str.lower,

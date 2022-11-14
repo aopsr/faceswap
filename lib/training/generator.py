@@ -458,7 +458,7 @@ class TrainingDataGenerator(DataGenerator):  # pylint:disable=too-few-public-met
     
     def set_reference(self, targets):
         self._reference_faces = targets[..., :3]
-        self._reference_masks = targets[..., 3][..., None]
+        self._reference_masks = targets[..., 3:]
     
     @property
     def reference_faces(self):
@@ -575,7 +575,7 @@ class TrainingDataGenerator(DataGenerator):  # pylint:disable=too-few-public-met
             self._transfer_color(batch) # assumes BGR from face A. If model is RGB, need to change
             orig = None
         else:
-            orig = batch[..., :4].copy()
+            orig = batch.copy()
 
         # Color Augmentation of the image only
         if self._augment_color:
@@ -633,9 +633,16 @@ class TrainingDataGenerator(DataGenerator):  # pylint:disable=too-few-public-met
         """
         
         for i in range(batch.shape[0]):
+            reference_mask = self.reference_masks[i]
+            face_mask = batch[i, ..., 3:]
+
+            if face_mask.shape[0] == 3:
+                reference_mask = np.maximum(reference_mask[..., 3] - reference_mask[..., 4] - reference_mask[..., 5], 0)
+                face_mask = np.maximum(face_mask[..., 3] - face_mask[..., 4] - face_mask[..., 5], 0)
+
             batch[i,..., :3] = self._to_uint8(self._color_transfer.process(
                 self._to_float32(self.reference_faces[i]), self._to_float32(batch[i, ..., :3]), 
-                self.reference_masks[i], batch[i, ..., 3][..., None]))
+                reference_mask, face_mask))
 
     def _get_closest_match(self, filenames: List[str], batch_src_points: np.ndarray) -> np.ndarray:
         """ Only called if the :attr:`_warp_to_landmarks` is ``True``. Gets the closest

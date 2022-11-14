@@ -361,6 +361,11 @@ class Converter():
                                                   predicted_mask,
                                                   reference_face)
         if self._adjustments.color is not None:
+            if self._args.ignore_eye_mouth:
+                detected_face._aligned = reference_face
+                eye = detected_face.get_landmark_mask("eye", 0, self._output_size // 64)
+                mouth = detected_face.get_landmark_mask("mouth", 0, self._output_size // 64)
+                raw_mask = np.maximum(raw_mask - eye - mouth, 0)
             new_face = self._adjustments.color.run(old_face, new_face, raw_mask)
         if self._adjustments.seamless is not None:
             new_face = self._adjustments.seamless.run(old_face, new_face, raw_mask)
