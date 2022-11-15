@@ -63,11 +63,8 @@ class Color(Adjustment):
             x0[raw_mask[..., 0] == 0] = [0,0,0]
             x1[raw_mask[..., 0] == 0] = [0,0,0]
 
-            h,w,c = x0.shape
-            h1,w1,c1 = x1.shape
-
-            x0 = x0.reshape ( (h*w,c) )
-            x1 = x1.reshape ( (h1*w1,c1) )
+            x0 = x0.reshape((-1, 3))
+            x1 = x1.reshape((-1, 3))
 
             a = np.cov(x0.T)
             b = np.cov(x1.T)
