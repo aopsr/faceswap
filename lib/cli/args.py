@@ -716,6 +716,13 @@ class ConvertArgs(ExtractConvertArgs):
             group=_("Plugins"),
             help=_("Ignore eye and mouth regions when determining face color distribution.")))
         argument_list.append(dict(
+            opts=("-cu", "--cuda"),
+            action="store_true",
+            dest="cuda",
+            default=False,
+            group=_("Plugins"),
+            help=_("Perform color transfer on nvidia gpu (only mkl supported)")))
+        argument_list.append(dict(
             opts=("-M", "--mask-type"),
             action=Radio,
             type=str.lower,
