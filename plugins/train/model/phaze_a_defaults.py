@@ -422,6 +422,14 @@ _DEFAULTS = dict(
         fixed=False),
 
     # Decoder
+    dec_type=dict(
+        default="original",
+        info="The type of decoder to use. Original or FMEN.",
+        datatype=str,
+        choices=["original", "FMEN"],
+        gui_radio=True,
+        group="decoder",
+        fixed=True),
     dec_upscale_method=dict(
         default="subpixel",
         info="The method to use for the upscales within the decoder. Images are upscaled multiple "

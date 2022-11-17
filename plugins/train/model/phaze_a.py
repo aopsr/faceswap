@@ -12,7 +12,7 @@ import numpy as np
 
 from lib.model.nn_blocks import (
     Conv2D, Conv2DBlock, Conv2DOutput, ResidualBlock, UpscaleBlock, Upscale2xBlock,
-    UpscaleResizeImagesBlock, UpscaleDNYBlock)
+    UpscaleResizeImagesBlock, UpscaleDNYBlock, FMEN)
 from lib.model.normalization import (
     AdaInstanceNormalization, GroupNormalization, InstanceNormalization, LayerNormalization,
     RMSNormalization)
@@ -548,6 +548,7 @@ def _get_upscale_layer(method: Literal["resize_images", "subpixel", "upscale_dny
                        filters: int,
                        activation: Optional[str] = None,
                        upsamples: Optional[int] = None,
+                       subpixel: Optional[int] = None,
                        interpolation: Optional[str] = None) -> keras.layers.Layer:
     """ Obtain an instance of the requested upscale method.
 
@@ -581,7 +582,7 @@ def _get_upscale_layer(method: Literal["resize_images", "subpixel", "upscale_dny
             kwargs["interpolation"] = interpolation
         return UpSampling2D(**kwargs)
     if method == "subpixel":
-        return UpscaleBlock(filters, activation=activation)
+        return UpscaleBlock(filters, activation=activation, subpixel=subpixel)
     if method == "upscale_fast":
         return Upscale2xBlock(filters, activation=activation, fast=True)
     if method == "upscale_hybrid":
@@ -1012,6 +1013,8 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
                      self.__class__.__name__, side, layer_indicies)
         self._side = side
         self._config = config
+        if self._config["dec_type"] == "FMEN":
+            self._config["dec_norm"] = "" # temp fix
         self._is_dny = self._config["dec_upscale_method"].lower() == "upscale_dny"
         self._layer_indicies = layer_indicies
         logger.debug("Initialized: %s", self.__class__.__name__,)
@@ -1047,7 +1050,9 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
                        inputs: Tensor,
                        filters: int,
                        skip_residual: bool = False,
-                       is_mask: bool = False) -> Tensor:
+                       is_mask: bool = False,
+                       upsamples: int = 2,
+                       subpixel: int = 2) -> Tensor:
         """ Upscale block for Phaze-A Decoder.
 
         Uses requested upscale method, adds requested regularization and activation function.
@@ -1072,7 +1077,8 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
         upscaler = _get_upscale_layer(self._config["dec_upscale_method"].lower(),
                                       filters,
                                       activation="leakyrelu",
-                                      upsamples=2,
+                                      upsamples=upsamples,
+                                      subpixel=subpixel,
                                       interpolation="bilinear")
 
         var_x = upscaler(inputs)
@@ -1189,11 +1195,35 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
 
         filters = self._filters[start_idx: end_idx]
 
-        for idx, filts in enumerate(filters):
-            skip_res = idx == len(filters) - 1 and self._config["dec_skip_last_residual"]
-            var_x = self._upscale_block(var_x, filts, skip_residual=skip_res)
+        if self._config["dec_type"] == "original":
+            for idx, filts in enumerate(filters):
+                skip_res = idx == len(filters) - 1 and self._config["dec_skip_last_residual"]
+                var_x = self._upscale_block(var_x, filts, skip_residual=skip_res)
+                if self._config["learn_mask"]:
+                    var_y = self._upscale_block(var_y, filts, is_mask=True)
+        else:
+            in_dim = K.int_shape(var_x)[2] # width of var_x
+            fmen_dim = (self._config["output_size"] / 4) # width of fmen
+            dim = np.prod(K.int_shape(var_x)[1:]) * 4 # size of var_x after upscale
+            dim /= (self._config["output_size"] / 4) ** 2 # ratio of size of var_x after upscale to fmen_dim
+            if dim < 3:
+                raise Exception("Not enough channels")
+            if np.mod(dim, 1) != 0:
+                raise Exception("Not integer number of channels")
+
+            # dim - channels after the first upscale block
+            idx, filts = 0, filters[0]
+            skip_res = idx == len(filters) -1 and self._config["dec_skip_last_residual"]
+            var_x = self._upscale_block(var_x, filts, skip_residual=True, subpixel=int(fmen_dim/in_dim))
             if self._config["learn_mask"]:
-                var_y = self._upscale_block(var_y, filts, is_mask=True)
+                var_y = self._upscale_block(var_y, filts, is_mask=True, subpixel=int(fmen_dim/in_dim))
+            
+            # FMEN
+            # var_x has shape (batch, dim, fmen_dim, fmen_dim)
+            var_x = FMEN(in_ch=dim)(var_x)
+            if self._config["learn_mask"]:
+                var_y = FMEN(in_ch=dim)(var_y)
+
         retval = [var_x, var_y] if self._config["learn_mask"] else var_x
         return retval
 

@@ -12,7 +12,7 @@ from .normalization import InstanceNormalization
 
 if get_backend() == "amd":
     from keras.layers import (
-        Activation, Add, BatchNormalization, Concatenate, Conv2D as KConv2D, Conv2DTranspose,
+        Activation, Add, Multiply, BatchNormalization, Concatenate, Conv2D as KConv2D, Conv2DTranspose,
         DepthwiseConv2D as KDepthwiseConv2d, LeakyReLU, PReLU, SeparableConv2D, UpSampling2D)
     from keras.initializers import he_uniform, VarianceScaling  # pylint:disable=no-name-in-module
     # type checking:
@@ -21,12 +21,13 @@ if get_backend() == "amd":
 else:
     # Ignore linting errors from Tensorflow's thoroughly broken import system
     from tensorflow.keras.layers import (  # noqa pylint:disable=no-name-in-module,import-error
-        Activation, Add, BatchNormalization, Concatenate, Conv2D as KConv2D, Conv2DTranspose,
+        Activation, Add, Multiply, BatchNormalization, Concatenate, Conv2D as KConv2D, Conv2DTranspose,
         DepthwiseConv2D as KDepthwiseConv2d, LeakyReLU, PReLU, SeparableConv2D, UpSampling2D)
     from tensorflow.keras.initializers import he_uniform, VarianceScaling  # noqa pylint:disable=no-name-in-module,import-error
     # type checking:
     from tensorflow import keras
     from tensorflow import Tensor
+    import tensorflow as tf
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -337,7 +338,7 @@ class Conv2DBlock():  # pylint:disable=too-few-public-methods
         if self._normalization == "instance":
             var_x = InstanceNormalization(name=f"{self._name}_instancenorm")(var_x)
         if self._normalization == "batch":
-            var_x = BatchNormalization(axis=3, name=f"{self._name}_batchnorm")(var_x)
+            var_x = BatchNormalization(axis=3, epsilon=eps, name=f"{self._name}_batchnorm")(var_x)
 
         # activation
         if self._activation == "leakyrelu":
@@ -449,6 +450,7 @@ class UpscaleBlock():  # pylint:disable=too-few-public-methods
                  scale_factor: int = 2,
                  normalization: Optional[str] = None,
                  activation: Optional[str] = "leakyrelu",
+                 subpixel: Optional[int] = None,
                  **kwargs) -> None:
         self._name = _get_name(f"upscale_{filters}")
         logger.debug("name: %s. filters: %s, kernel_size: %s, padding: %s, scale_factor: %s, "
@@ -462,6 +464,7 @@ class UpscaleBlock():  # pylint:disable=too-few-public-methods
         self._scale_factor = scale_factor
         self._normalization = normalization
         self._activation = activation
+        self._subpixel = subpixel or scale_factor
         self._kwargs = kwargs
 
     def __call__(self, inputs: Tensor) -> Tensor:
@@ -487,7 +490,7 @@ class UpscaleBlock():  # pylint:disable=too-few-public-methods
                             is_upscale=True,
                             **self._kwargs)(inputs)
         var_x = PixelShuffler(name=f"{self._name}_pixelshuffler",
-                              size=self._scale_factor)(var_x)
+                              size=(self._subpixel, self._subpixel))(var_x)
         return var_x
 
 
@@ -741,6 +744,202 @@ class UpscaleDNYBlock():  # pylint:disable=too-few-public-methods
                                 **self._kwargs)(var_x)
         return var_x
 
+def pad_tensor(t, pattern):
+    pattern = keras.backend.reshape(pattern, (1, 1, 1, -1))
+    pattern2 = keras.backend.tile(pattern, (keras.backend.shape(t)[0], 1, t.shape[2], 1))
+    t = Concatenate(axis=1)([pattern2, t])
+    t = Concatenate(axis=1)([t, pattern2])
+    pattern2 = keras.backend.tile(pattern, (keras.backend.shape(t)[0], t.shape[1], 1, 1))
+    t = Concatenate(axis=2)([pattern2, t])
+    t = Concatenate(axis=2)([t, pattern2])
+
+    return t
+
+alpha = 0.1
+eps = 1e-5
+
+def get_bn_bias(bn_layer):
+    gamma, beta, mean, var = bn_layer.weights
+    std = keras.backend.sqrt(var + eps)
+    bn_bias = beta - mean * gamma / std
+
+    return bn_bias
+
+class RRRB():
+    """ Residual in residual reparameterizable block.
+    Using reparameterizable block to replace single 3x3 convolution.
+
+    Diagram:
+        ---Conv1x1--Conv3x3-+-Conv1x1--+--
+                   |________|
+         |_____________________________|
+
+
+    Args:
+        n_feats (int): The number of feature maps.
+        ratio (int): Expand ratio.
+    """
+
+    def __init__(self, n_feats, ratio=2):
+        self.expand_conv = Conv2D(ratio*n_feats, 1, padding="valid")
+        self.fea_conv = Conv2D(ratio*n_feats, 3, padding="valid")
+        self.reduce_conv = Conv2D(n_feats, 1, padding="valid")
+    
+    def __call__(self, x: Tensor) -> Tensor:
+        out = self.expand_conv(x)
+        out_identity = out
+        
+        # padding with bias for reparameterizing in the test phase
+        b0 = self.expand_conv.weights[1]
+        out = pad_tensor(out, b0)
+
+        out = Add()([self.fea_conv(out), out_identity])
+        out = self.reduce_conv(out)
+        out = Add()([out, x])
+
+        return out
+
+class ERB():
+    """ Enhanced residual block for building FEMN.
+
+    Diagram:
+        --RRRB--LeakyReLU--RRRB--
+        
+    Args:
+        n_feats (int): Number of feature maps.
+        ratio (int): Expand ratio in RRRB.
+    """
+
+    def __init__(self, n_feats, ratio=2):
+        self.n_feats = n_feats
+        self.ratio = ratio
+    
+    def __call__(self, x: Tensor) -> Tensor:
+        out = RRRB(self.n_feats, self.ratio)(x)
+        out = LeakyReLU(alpha=alpha)(out)
+        out = RRRB(self.n_feats, self.ratio)(out)
+
+        return out
+
+class HFAB():
+    """ High-Frequency Attention Block.
+
+    Diagram:
+        ---BN--Conv--[ERB]*up_blocks--BN--Conv--BN--Sigmoid--*--
+         |___________________________________________________|
+
+    Args:
+        n_feats (int): Number of HFAB input feature maps.
+        up_blocks (int): Number of ERBs for feature extraction in this HFAB.
+        mid_feats (int): Number of feature maps in ERB.
+
+    Note:
+        Batch Normalization (BN) is adopted to introduce global contexts and achieve sigmoid unsaturated area.
+
+    """
+
+    def __init__(self, n_feats, up_blocks, mid_feats, ratio):
+        self._name = _get_name("HFAB")
+        self.n_feats = n_feats
+        self.up_blocks = up_blocks
+        self.mid_feats = mid_feats
+        self.ratio = ratio
+        self.bn1 = BatchNormalization(axis=3, epsilon=eps)
+        self.bn2 = BatchNormalization(axis=3, epsilon=eps)
+        self.bn3 = BatchNormalization(axis=3, epsilon=eps)
+
+    def __call__(self, x: Tensor) -> Tensor:
+        n_feats = self.n_feats
+        mid_feats = self.mid_feats
+        up_blocks = self.up_blocks
+        ratio = self.ratio
+
+        # padding with bn bias
+        out = self.bn1(x)
+        bn1_bias = get_bn_bias(self.bn1)
+        out = pad_tensor(out, bn1_bias)
+
+        # squeeze
+        out = Conv2D(mid_feats, 3, padding="valid")(out)
+        out = LeakyReLU(alpha=alpha)(out)
+
+        for _ in range(up_blocks):
+            out = ERB(mid_feats, ratio)(out)
+        out = LeakyReLU(alpha=alpha)(out)
+
+        # padding with bn bias
+        out = self.bn2(out)
+        bn2_bias = get_bn_bias(self.bn2)
+        out = pad_tensor(out, bn2_bias)
+
+        # excite
+        out = Conv2D(n_feats, 3, padding="valid")(out)
+
+        out = Activation("sigmoid", dtype="float32")(self.bn3(out))
+
+        return Multiply()([out, x])
+
+
+class FMEN():
+    """ Fast and Memory-Efficient Network Towards Efficient Image Super-Resolution
+
+    Written by @aopsr
+    
+    https://arxiv.org/abs/2204.08397
+    https://github.com/NJU-Jet/FMEN
+
+    """
+
+    def __init__(self, in_ch: int = 3):
+        self.down_blocks = 4
+        self.up_blocks = [2, 1, 1, 1, 1]
+        self.n_feats = 50
+        self.mid_feats = 16
+        self.backbone_expand_ratio = 2
+        self.attention_expand_ratio = 2
+
+        self.scale = [4]
+        self.n_colors = 3
+        self.in_ch = in_ch
+        self._name = _get_name("fmen")
+
+        if self.n_colors * (self.scale[0]**2) > self.n_feats:
+            print("Warning: n_colors * (scale**2) > n_feats.")
+        
+        if self.n_colors * (self.scale[0]**2) < self.in_ch:
+            print("Warning: n_colos * (scale**2) < in_ch")
+    
+    def __call__(self, x: Tensor) -> Tensor:
+        up_blocks = self.up_blocks
+        mid_feats = self.mid_feats
+        n_feats = self.n_feats
+        n_colors = self.n_colors
+        scale = self.scale[0]
+        backbone_expand_ratio = self.backbone_expand_ratio
+        attention_expand_ratio = self.attention_expand_ratio
+
+        # head
+        x = Conv2D(n_feats, 3, padding="same", name="head")(x)
+
+        # warm up
+        h = Conv2D(n_feats, 3, padding="same", name="warmup_conv2d")(x)
+        h = HFAB(n_feats, up_blocks[0], mid_feats-4, attention_expand_ratio)(h)
+
+        # body
+        for i in range(self.down_blocks):
+            h = ERB(n_feats, backbone_expand_ratio)(h)
+            h = HFAB(n_feats, up_blocks[i+1], mid_feats, attention_expand_ratio)(h)
+
+        h = Conv2D(n_feats, 3, padding="same", name="lr_conv")(h)
+
+        h = Add()([h, x])
+
+        # tail
+        x = Conv2D(n_colors*(scale**2), 3, padding="same", name="tail")(h)
+        x = PixelShuffler(name=f"{self._name}_pixelshuffler",
+                              size=scale)(x)
+
+        return x
 
 # << OTHER BLOCKS >>
 class ResidualBlock():  # pylint:disable=too-few-public-methods
