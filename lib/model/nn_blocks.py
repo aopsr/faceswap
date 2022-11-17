@@ -338,7 +338,7 @@ class Conv2DBlock():  # pylint:disable=too-few-public-methods
         if self._normalization == "instance":
             var_x = InstanceNormalization(name=f"{self._name}_instancenorm")(var_x)
         if self._normalization == "batch":
-            var_x = BatchNormalization(axis=3, epsilon=eps, name=f"{self._name}_batchnorm")(var_x)
+            var_x = BatchNormalization(axis=3, name=f"{self._name}_batchnorm")(var_x)
 
         # activation
         if self._activation == "leakyrelu":
