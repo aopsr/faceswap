@@ -202,7 +202,8 @@ class Conv2DOutput():  # pylint:disable=too-few-public-methods
                  filters: int,
                  kernel_size: Union[int, Tuple[int]],
                  activation: str = "sigmoid",
-                 padding: str = "same", **kwargs) -> None:
+                 padding: str = "same", 
+                 dtype: str = "float32", **kwargs) -> None:
         self._name = kwargs.pop("name") if "name" in kwargs else _get_name(
             f"conv_output_{filters}")
         self._filters = filters
@@ -210,6 +211,7 @@ class Conv2DOutput():  # pylint:disable=too-few-public-methods
         self._activation = activation
         self._padding = padding
         self._kwargs = kwargs
+        self._dtype = dtype
 
     def __call__(self, inputs: Tensor) -> Tensor:
         """ Call the Faceswap Convolutional Output Layer.
@@ -229,7 +231,7 @@ class Conv2DOutput():  # pylint:disable=too-few-public-methods
                        padding=self._padding,
                        name=f"{self._name}_conv2d",
                        **self._kwargs)(inputs)
-        var_x = Activation(self._activation, dtype="float32", name=self._name)(var_x)
+        var_x = Activation(self._activation, dtype=self._dtype, name=self._name)(var_x)
         return var_x
 
 
@@ -890,16 +892,21 @@ class FMEN():
 
     """
 
-    def __init__(self, in_ch: int = 3):
-        self.down_blocks = 4
-        self.up_blocks = [2, 1, 1, 1, 1]
-        self.n_feats = 50
-        self.mid_feats = 16
+    def __init__(self, 
+                in_ch: int = 3, 
+                n_colors: int = 3,
+                scale: int = 4,
+                n_feats: int = 50,
+                down_blocks: int = 4):
+        self.down_blocks = down_blocks
+        self.up_blocks = [2] + [1] * self.down_blocks
+        self.n_feats = n_feats
+        self.mid_feats = int(n_feats * 16 / 50) 
         self.backbone_expand_ratio = 2
         self.attention_expand_ratio = 2
 
-        self.scale = [4]
-        self.n_colors = 3
+        self.scale = [scale]
+        self.n_colors = n_colors
         self.in_ch = in_ch
         self._name = _get_name("fmen")
 

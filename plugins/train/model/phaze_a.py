@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 if get_backend() == "amd":
     from keras import applications as kapp, backend as K
     from keras.layers import (
-        Add, BatchNormalization, Concatenate, Dense, Dropout, Flatten, GaussianNoise, MaxPool2D,
+        Activation, Add, BatchNormalization, Concatenate, Dense, Dropout, Flatten, GaussianNoise, MaxPool2D,
         GlobalAveragePooling2D, GlobalMaxPooling2D, Input, LeakyReLU, Reshape, UpSampling2D,
         Conv2D as KConv2D)
     from keras.models import clone_model
@@ -42,7 +42,7 @@ else:
     # Ignore linting errors from Tensorflow's thoroughly broken import system
     from tensorflow.keras import applications as kapp, backend as K  # pylint:disable=import-error
     from tensorflow.keras.layers import (  # pylint:disable=import-error,no-name-in-module
-        Add, BatchNormalization, Concatenate, Dense, Dropout, Flatten, GaussianNoise, MaxPool2D,
+        Activation, Add, BatchNormalization, Concatenate, Dense, Dropout, Flatten, GaussianNoise, MaxPool2D,
         GlobalAveragePooling2D, GlobalMaxPooling2D, Input, LeakyReLU, Reshape, UpSampling2D,
         Conv2D as KConv2D)
     from tensorflow.keras.models import clone_model  # noqa pylint:disable=import-error,no-name-in-module
@@ -178,8 +178,12 @@ class Model(ModelBase):
     """
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        if self.config["output_size"] % 64 != 0:
-            raise FaceswapError("Phaze-A output shape must be a multiple of 64")
+        output_size = self.config["output_size"]
+        if self.config["dec_type"] == "FMEN":
+            output_size /= 2
+
+        if output_size % 32 != 0:
+            raise FaceswapError("Phaze-A output shape must be a multiple of 32 (64 if using FMEN)")
 
         self._validate_encoder_architecture()
         self.config["freeze_layers"] = self._select_freeze_layers()
@@ -664,6 +668,9 @@ def _scale_dim(target_resolution: int, original_dim: int) -> int:
         The highest dimension below or equal to `original_dim` that is a factor of the
     target resolution.
     """
+    if target_resolution % 1 != 0:
+        raise Exception("Not integer")
+    target_resolution = int(target_resolution)
     new_dim = target_resolution
     while new_dim > original_dim:
         next_dim = new_dim / 2
@@ -895,7 +902,10 @@ class FullyConnected():  # pylint:disable=too-few-public-methods
         int
             The number of filters scaled down for output size
         """
-        scaled_dim = _scale_dim(self._config["output_size"], self._final_dims)
+        output_size = self._config["output_size"]
+        if self._config["dec_type"] == "FMEN":
+            output_size /= 2
+        scaled_dim = _scale_dim(output_size, self._final_dims)
         if scaled_dim == self._final_dims:
             logger.debug("filters don't require scaling. Returning: %s", original_filters)
             return original_filters
@@ -1037,12 +1047,15 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
         """
         var_x = inputs
         old_dim = K.int_shape(inputs)[1]
-        new_dim = _scale_dim(self._config["output_size"], old_dim)
+        output_size = self._config["output_size"]
+        if self._config["dec_type"] == "FMEN":
+            output_size /= 2
+        new_dim = _scale_dim(output_size, old_dim)
         if new_dim != old_dim:
             old_shape = K.int_shape(inputs)[1:]
             new_shape = (new_dim, new_dim, np.prod(old_shape) // new_dim ** 2)
             logger.debug("Reshaping tensor from %s to %s for output size %s",
-                         K.int_shape(inputs)[1:], new_shape, self._config["output_size"])
+                         K.int_shape(inputs)[1:], new_shape, output_size)
             var_x = Reshape(new_shape)(var_x)
         return var_x
 
@@ -1094,6 +1107,20 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
             if not self._is_dny:
                 var_x = LeakyReLU(alpha=0.1)(var_x)
         return var_x
+    
+    def _calculate_factor(self, c: int) -> int:
+        """ Heuristic group norm size calculation """
+        if c < 32:
+            return c # equivalent to LN
+        if c % 32 == 0:
+            return 32
+        
+        k = 32
+        while k < c//2: # O(1) because c < 10000 or reasonable number
+            k+=1
+            if c % k == 0:
+                return k
+        return c
 
     def _normalization(self, inputs: Tensor) -> Tensor:
         """ Add a normalization layer if requested.
@@ -1110,6 +1137,8 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
         """
         if not self._config["dec_norm"]:
             return inputs
+        if self._config["dec_norm"] == "group":
+            return GroupNormalization(group = self._calculate_factor(K.int_shape(inputs)[-1]))(inputs) # NHWC
         norms = dict(batch=BatchNormalization,
                      group=GroupNormalization,
                      instance=InstanceNormalization,
@@ -1185,7 +1214,10 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
 
         # De-convolve
         if not self._filters:
-            upscales = int(np.log2(self._config["output_size"] / K.int_shape(var_x)[1]))
+            output_size = self._config["output_size"]
+            if self._config["dec_type"] == "FMEN":
+                output_size /= 2
+            upscales = int(np.log2(int(output_size) / K.int_shape(var_x)[1]))
             self._filters.extend(_get_curve(self._config["dec_max_filters"],
                                             self._config["dec_min_filters"],
                                             upscales,
@@ -1195,34 +1227,11 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
 
         filters = self._filters[start_idx: end_idx]
 
-        if self._config["dec_type"] == "original":
-            for idx, filts in enumerate(filters):
-                skip_res = idx == len(filters) - 1 and self._config["dec_skip_last_residual"]
-                var_x = self._upscale_block(var_x, filts, skip_residual=skip_res)
-                if self._config["learn_mask"]:
-                    var_y = self._upscale_block(var_y, filts, is_mask=True)
-        else:
-            in_dim = K.int_shape(var_x)[2] # width of var_x
-            fmen_dim = (self._config["output_size"] / 4) # width of fmen
-            dim = np.prod(K.int_shape(var_x)[1:]) * 4 # size of var_x after upscale
-            dim /= (self._config["output_size"] / 4) ** 2 # ratio of size of var_x after upscale to fmen_dim
-            if dim < 3:
-                raise Exception("Not enough channels")
-            if np.mod(dim, 1) != 0:
-                raise Exception("Not integer number of channels")
-
-            # dim - channels after the first upscale block
-            idx, filts = 0, filters[0]
-            skip_res = idx == len(filters) -1 and self._config["dec_skip_last_residual"]
-            var_x = self._upscale_block(var_x, filts, skip_residual=True, subpixel=int(fmen_dim/in_dim))
+        for idx, filts in enumerate(filters):
+            skip_res = idx == len(filters) - 1 and self._config["dec_skip_last_residual"]
+            var_x = self._upscale_block(var_x, filts, skip_residual=skip_res)
             if self._config["learn_mask"]:
-                var_y = self._upscale_block(var_y, filts, is_mask=True, subpixel=int(fmen_dim/in_dim))
-            
-            # FMEN
-            # var_x has shape (batch, dim, fmen_dim, fmen_dim)
-            var_x = FMEN(in_ch=dim)(var_x)
-            if self._config["learn_mask"]:
-                var_y = FMEN(in_ch=dim)(var_y)
+                var_y = self._upscale_block(var_y, filts, is_mask=True)
 
         retval = [var_x, var_y] if self._config["learn_mask"] else var_x
         return retval
@@ -1359,11 +1368,28 @@ class Decoder():  # pylint:disable=too-few-public-methods
             var_x, var_y = upscales
         else:
             var_x = upscales
+        
+        fmen = self._config["dec_type"] == "FMEN"
 
-        outputs = [Conv2DOutput(3, self._config["dec_output_kernel"], name="face_out")(var_x)]
+        var_x = Conv2DOutput(3, self._config["dec_output_kernel"], 
+                            name="face_out", dtype="float16" if fmen else "float32")(var_x)
         if self._config["learn_mask"]:
-            outputs.append(Conv2DOutput(1,
-                                        self._config["dec_output_kernel"],
-                                        name="mask_out")(var_y))
+            var_y = Conv2DOutput(1,
+                                self._config["dec_output_kernel"],
+                                name="mask_out",
+                                dtype="float16" if fmen else "float32")(var_y)
+        
+        # if upscale
+        if fmen:
+            # FMEN
+            var_x = FMEN(scale=2, down_blocks=2)(var_x)
+            var_x = K.cast(var_x, "float32")
+            if self._config["learn_mask"]:
+                var_y = FMEN(in_ch=1, n_colors=1, scale=2, down_blocks=2)(var_y)
+                var_y = K.cast(var_y, "float32")
 
+        outputs = [var_x]
+        if self._config["learn_mask"]:
+            outputs.append(var_y)
+        
         return KerasModel(inputs, outputs=outputs, name=f"decoder_{self._side}")
