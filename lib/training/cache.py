@@ -425,7 +425,7 @@ class _Cache():
 
         if mask_type not in detected_face.mask:
             raise FaceswapError(
-                f"You have selected the mask type '{self._config['mask_type']}' but at least one "
+                f"You have selected the mask type '{mask_type}' but at least one "
                 "face does not contain the selected mask.\n"
                 f"The face that failed was: '{filename}'\n"
                 f"The masks that exist for this face are: {list(detected_face.mask)}")
