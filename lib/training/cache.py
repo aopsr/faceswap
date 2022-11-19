@@ -70,7 +70,7 @@ def get_cache(side: Literal["a", "b"],
                                             "cache")
         logger.debug("Creating cache. side: %s, size: %s, coverage_ratio: %s",
                      side, size, coverage_ratio)
-        _FACE_CACHES[side] = _Cache(filenames, config, size, coverage_ratio)
+        _FACE_CACHES[side] = _Cache(filenames, config, size, coverage_ratio, side)
     return _FACE_CACHES[side]
 
 
@@ -123,7 +123,8 @@ class _Cache():
                  filenames: List[str],
                  config: "ConfigType",
                  size: int,
-                 coverage_ratio: float) -> None:
+                 coverage_ratio: float,
+                 side: str) -> None:
         logger.debug("Initializing: %s (filenames: %s, size: %s, coverage_ratio: %s)",
                      self.__class__.__name__, len(filenames), size, coverage_ratio)
         self._lock = Lock()
@@ -135,6 +136,7 @@ class _Cache():
         self._aligned_landmarks: Dict[str, np.ndarray] = {}
         self._extract_version = 0.0
         self._size = size
+        self._side = side
 
         assert config["centering"] in get_args(CenteringType)
         self._centering: CenteringType = cast(CenteringType, config["centering"])
@@ -416,15 +418,19 @@ class _Cache():
         if not self._config["mask_type"]:
             logger.debug("No mask selected. Not validating")
             return None
+        
+        mask_type = str(self._config["mask_type"])
+        if self._side == "a" and self._config["mask_type_a"]:
+            mask_type = str(self._config["mask_type_a"])
 
-        if self._config["mask_type"] not in detected_face.mask:
+        if mask_type not in detected_face.mask:
             raise FaceswapError(
                 f"You have selected the mask type '{self._config['mask_type']}' but at least one "
                 "face does not contain the selected mask.\n"
                 f"The face that failed was: '{filename}'\n"
                 f"The masks that exist for this face are: {list(detected_face.mask)}")
 
-        mask = detected_face.mask[str(self._config["mask_type"])]
+        mask = detected_face.mask[mask_type]
         mask.set_blur_and_threshold(blur_kernel=int(self._config["mask_blur_kernel"]),
                                     threshold=int(self._config["mask_threshold"]))
 

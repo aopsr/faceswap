@@ -552,6 +552,16 @@ class Config(FaceswapConfig):
                  "performance.")
         self.add_item(
             section=section,
+            title="mask_type_a",
+            datatype=str,
+            default="none",
+            choices=PluginLoader.get_available_extractors("mask",
+                                                          add_none=True, extend_plugin=True),
+            group="mask",
+            gui_radio=True,
+            info="The mask to be used for training for face A. If None, then same as face B.")
+        self.add_item(
+            section=section,
             title="mask_blur_kernel",
             datatype=int,
             min_max=(0, 9),
