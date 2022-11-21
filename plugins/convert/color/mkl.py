@@ -1,13 +1,13 @@
 import numpy as np
 from ._base import Adjustment
+import tensorflow as tf
+import tensorflow_probability as tfp
+import tensorflow.linalg as ln
 
 class Color(Adjustment):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self._cuda:
-            import tensorflow as tf
-            import tensorflow_probability as tfp
-            import tensorflow.linalg as ln
             def graph(x1, x0):
                 output_shape = x0.shape
                 eps = tf.math.nextafter(tf.constant(0, dtype=tf.float32),tf.constant(1, dtype=tf.float32))
