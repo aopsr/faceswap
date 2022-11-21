@@ -554,9 +554,9 @@ class Config(FaceswapConfig):
             section=section,
             title="mask_type_a",
             datatype=str,
-            default="none",
-            choices=PluginLoader.get_available_extractors("mask",
-                                                          add_none=True, extend_plugin=True),
+            default="same",
+            choices=["same"] + PluginLoader.get_available_extractors("mask",
+                                                          add_none=False, extend_plugin=True),
             group="mask",
             gui_radio=True,
             info="The mask to be used for training for face A. If None, then same as face B.")

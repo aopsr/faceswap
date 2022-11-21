@@ -123,11 +123,12 @@ class TrainerBase():
         config = _get_config(".".join(self.__module__.split(".")[-2:]),
                              configfile=configfile)
         for key, val in config.items():
-            if key in self._model.config and val != self._model.config[key]:
-                new_val = self._model.config[key]
-                logger.debug("Updating global training config item for '%s' form '%s' to '%s'",
-                             key, val, new_val)
-                config[key] = new_val
+            if key == "mask_type" and key != "mask_type_a":
+                if key in self._model.config and val != self._model.config[key]:
+                    new_val = self._model.config[key]
+                    logger.debug("Updating global training config item for '%s' form '%s' to '%s'",
+                                key, val, new_val)
+                    config[key] = new_val
         return config
 
     def _set_tensorboard(self) -> tf.keras.callbacks.TensorBoard:

@@ -420,7 +420,7 @@ class _Cache():
             return None
         
         mask_type = str(self._config["mask_type"])
-        if self._side == "a" and self._config["mask_type_a"]:
+        if self._side == "a" and str(self._config["mask_type_a"]) != "same":
             mask_type = str(self._config["mask_type_a"])
 
         if mask_type not in detected_face.mask:
