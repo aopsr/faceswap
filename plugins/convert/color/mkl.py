@@ -1,5 +1,4 @@
 import numpy as np
-import cv2
 from ._base import Adjustment
 
 class Color(Adjustment):
@@ -42,7 +41,8 @@ class Color(Adjustment):
                 result = tf.math.add(ln.matmul(tf.math.subtract(x0, mx0), t), mx1)
 
                 return tf.reshape(result, output_shape)
-            self._process = tf.function(graph)
+            self._process = tf.function(graph, input_signature=[
+                tf.TensorSpec(shape=(self.res, self.res, 3)), tf.TensorSpec(shape=(self.res, self.res, 3))])
 
     def process(self, source, target, raw_mask) -> np.ndarray:
         if self._cuda:
@@ -51,6 +51,9 @@ class Color(Adjustment):
 
             x0[raw_mask[..., 0] == 0] = [0,0,0]
             x1[raw_mask[..., 0] == 0] = [0,0,0]
+
+            x0 = tf.convert_to_tensor(x0)
+            x1 = tf.convert_to_tensor(x1)
 
             return self._process(x1, x0).numpy()
 

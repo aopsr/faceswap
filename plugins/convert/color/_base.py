@@ -17,11 +17,12 @@ def get_config(plugin_name, configfile=None):
 
 class Adjustment():
     """ Parent class for adjustments """
-    def __init__(self, configfile=None, config=None, cuda=False):
+    def __init__(self, configfile=None, config=None, cuda=False, res=None):
         logger.debug("Initializing %s: (configfile: %s, config: %s)",
                      self.__class__.__name__, configfile, config)
         self.config = self.set_config(configfile, config)
         self._cuda = cuda and get_backend() == "nvidia"
+        self.res = res
         logger.debug("config: %s", self.config)
         logger.debug("Initialized %s", self.__class__.__name__)
 

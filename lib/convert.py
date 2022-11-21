@@ -165,7 +165,8 @@ class Converter():
                                                                  disable_logging=disable_logging)(
                                                                     configfile=self._configfile,
                                                                     config=config,
-                                                                    cuda=self._args.cuda)
+                                                                    cuda=self._args.cuda,
+                                                                    res=self._output_size)
 
         sharpening = PluginLoader.get_converter("scaling",
                                                 "sharpen",
