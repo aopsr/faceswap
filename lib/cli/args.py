@@ -486,11 +486,14 @@ class ExtractArgs(ExtractConvertArgs):
                    "times the face is re-fed into the aligner, the less micro-jitter should occur "
                    "but the longer extraction will take.")))
         argument_list.append(dict(
-            opts=("-sec", "--second-pass"),
+            opts=("-a", "--re-align"),
             action="store_true",
+            dest="re_align",
             default=False,
             group=_("Plugins"),
-            help=_("2nd pass alignments")))
+            help=_("Re-feed the initially found aligned face through the aligner. Can help "
+                   "produce better alignments for faces that are rotated beyond 45 degrees in "
+                   "the frame or are at extreme angles. Slows down extraction.")))
         argument_list.append(dict(
             opts=("-r", "--rotate-images"),
             type=str,
