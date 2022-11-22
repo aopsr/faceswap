@@ -621,7 +621,6 @@ class Extractor():
                                                         re_feed=re_feed,
                                                         re_align=re_align,
                                                         disable_filter=disable_filter,
-                                                        second_pass=second_pass,
                                                         instance=self._instance)
         return plugin
 

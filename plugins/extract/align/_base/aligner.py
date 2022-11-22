@@ -450,7 +450,6 @@ class Aligner(Extractor):  # pylint:disable=abstract-method
             # Move the populated feed into the batch refeed list. It will be overwritten at next
             # iteration
             batch.refeeds.append(batch.feed)
-            batch.matrices.append(batch.matrix)
 
         # Place the original bounding box back to detected face objects
         for face, box in zip(batch.detected_faces, original_boxes):
