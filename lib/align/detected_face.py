@@ -153,7 +153,7 @@ class DetectedFace():
                  mask: np.ndarray,
                  affine_matrix: np.ndarray,
                  interpolator: int,
-                 storage_size: int = 128,
+                 storage_size: int = 256,
                  storage_centering: "CenteringType" = "face") -> None:
         """ Add a :class:`Mask` to this detected face
 
