@@ -424,11 +424,19 @@ class _Cache():
             mask_type = str(self._config["mask_type_a"])
 
         if mask_type not in detected_face.mask:
-            raise FaceswapError(
-                f"You have selected the mask type '{mask_type}' but at least one "
-                "face does not contain the selected mask.\n"
-                f"The face that failed was: '{filename}'\n"
-                f"The masks that exist for this face are: {list(detected_face.mask)}")
+            not_exist = True
+            if mask_type == "bisenet-fp_face" and "xseg" in detected_face.mask:
+                not_exist = False
+                mask_type = "xseg"
+            if mask_type == "xseg" and "bisenet-fp_face" in detected_face.mask:
+                not_exist = False
+                mask_type = "bisenet-fp_face"
+            if not_exist:
+                raise FaceswapError(
+                    f"You have selected the mask type '{mask_type}' but at least one "
+                    "face does not contain the selected mask.\n"
+                    f"The face that failed was: '{filename}'\n"
+                    f"The masks that exist for this face are: {list(detected_face.mask)}")
 
         mask = detected_face.mask[mask_type]
         mask.set_blur_and_threshold(blur_kernel=int(self._config["mask_blur_kernel"]),
