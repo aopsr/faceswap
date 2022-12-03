@@ -437,6 +437,16 @@ class S3fd(KSession):
                     box = self.decode(loc, priors)
                     x_1, y_1, x_2, y_2 = box[0] * 1.0
                     retval.append([x_1, y_1, x_2, y_2, score])
+        # filter center
+        center = False
+        if center and len(retval) > 1:
+            retval2 = []
+            for b in retval:
+                mid = (b[0] + b[2]) / 2
+                if mid > 640/3 and mid < 640*2/3:
+                    retval2.append(b)
+            retval = retval2
+
         return_numpy = np.array(retval) if len(retval) != 0 else np.zeros((1, 5))
         return return_numpy
 
