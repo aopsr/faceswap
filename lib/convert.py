@@ -469,7 +469,7 @@ class Converter():
         if self._scale == 1:
             return frame
         logger.trace("source frame: %s", frame.shape)  # type: ignore
-        interp = cv2.INTER_CUBIC if self._scale > 1 else cv2.INTER_AREA
+        interp = cv2.INTER_CUBIC if self._scale > 1 else cv2.INTER_CUBIC
         dims = (round((frame.shape[1] / 2 * self._scale) * 2),
                 round((frame.shape[0] / 2 * self._scale) * 2))
         frame = cv2.resize(frame, dims, interpolation=interp)
