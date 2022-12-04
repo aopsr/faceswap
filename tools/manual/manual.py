@@ -250,9 +250,10 @@ class Manual(tk.Tk):
         if key_press in bindings:
             logger.trace("key press: %s, action: %s", key_press, bindings[key_press])
             self.focus_set()
-            self._stop_auto_fill()
-            if key_press == "e":
-                if not self._display.navigation.increment_frame(check_next=True, check_misaligned=True):
+            if self._globals._auto_fill_flag:
+                self._globals._auto_fill_flag = False
+            elif key_press == "e":
+                if not self._display.navigation.increment_frame(check_curr=True, check_next=True, check_misaligned=True):
                     f = self._globals.tk_frame_index.get() # is already guaranteed to be + 1 from tk_pos
                     self._detected_faces.update.copy_and_update(f, "prev")
             elif key_press == "p":
@@ -270,13 +271,10 @@ class Manual(tk.Tk):
         for _ in range(nframes):
             if not self._globals._auto_fill_flag:
                 return
-            if self._display.navigation.increment_frame(check_next=True, check_misaligned=True):
+            if self._display.navigation.increment_frame(check_curr=True, check_next=True, check_misaligned=True):
                 break
             f = self._globals.tk_frame_index.get() # is already guaranteed to be + 1 from tk_pos
             self._detected_faces.update.copy_and_update(f, "prev")
-    
-    def _stop_auto_fill(self):
-        self._globals._auto_fill_flag = False
 
     def _set_initial_layout(self):
         """ Set the favicon and the bottom frame position to correct location to display full
@@ -440,6 +438,8 @@ class TkGlobals():
                                    interpolation=None,
                                    display_dims=None,
                                    filename=None)
+        
+        self._auto_fill_flag = False
         logger.debug("Initialized %s", self.__class__.__name__)
 
     @classmethod

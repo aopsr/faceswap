@@ -459,6 +459,10 @@ class Filter():
         return retval
     
     @property
+    def no_faces(self):
+        return not self._detected_faces.current_faces[self._globals.frame_index]
+    
+    @property
     def any_frame_misaligned(self):
         frame_faces = self._detected_faces.current_faces[self._globals.frame_index]
         distance = self._filter_distance
