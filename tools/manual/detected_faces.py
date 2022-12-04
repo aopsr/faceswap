@@ -473,7 +473,7 @@ class Filter():
         """ bool: ``True`` if the next frame meets the selected filter criteria otherwise
         ``False`` """
         filter_mode = self._globals.filter_mode
-        frame_faces = self._detected_faces.current_faces[self._globals.frame_index+1]
+        frame_faces = self._detected_faces.current_faces[self._globals.frame_index+1] # TODO: check valid range
         distance = self._filter_distance
         retval = (
             filter_mode == "All Frames" or
@@ -895,15 +895,15 @@ class FaceUpdate():
                             copied.left, copied.width, copied.top, copied.height,
                             aligner="FAN")
         
-        # calculate center of alignments - TODO: make more precise based on angle
+        # calculate center of alignments - TODO: make more precise based on angle and change scale
         center = np.mean(copied.landmarks_xy[17:], axis=0)
         center_bb = [copied.left + copied.width / 2, copied.top + copied.height / 2]
         adjust_x = center_bb[0] - center[0]
         adjust_y = center_bb[1] - center[1]
 
         # adjust bounding box to be at center
-        copied.left = copied.left - adjust_x
-        copied.top = copied.top - adjust_y
+        copied.left = int(copied.left - adjust_x)
+        copied.top = int(copied.top - adjust_y)
 
         self._tk_face_count_changed.set(True)
         self._globals.tk_update.set(True)

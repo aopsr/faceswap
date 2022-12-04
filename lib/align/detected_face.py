@@ -342,10 +342,10 @@ class DetectedFace():
 
         logger.trace("Creating from alignment: (alignment: %s, has_image: %s)",  # type: ignore
                      alignment, bool(image is not None))
-        self.left = alignment["x"]
-        self.width = alignment["w"]
-        self.top = alignment["y"]
-        self.height = alignment["h"]
+        self.left = int(alignment["x"])
+        self.width = int(alignment["w"])
+        self.top = int(alignment["y"])
+        self.height = int(alignment["h"])
         landmarks = alignment["landmarks_xy"]
         if not isinstance(landmarks, np.ndarray):
             landmarks = np.array(landmarks, dtype="float32")
