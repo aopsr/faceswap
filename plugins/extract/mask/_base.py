@@ -94,7 +94,7 @@ class Masker(Extractor):  # pylint:disable=abstract-method
         self._plugin_type = "mask"
         self._storage_name = self.__module__.rsplit(".", maxsplit=1)[-1].replace("_", "-")
         self._storage_centering: "CenteringType" = "face"  # Centering to store the mask at
-        self._storage_size = 128  # Size to store masks at. Leave this at default
+        self._storage_size = 256  # Size to store masks at. Leave this at default
         logger.debug("Initialized %s", self.__class__.__name__)
 
     def get_batch(self, queue: "Queue") -> Tuple[bool, MaskerBatch]:
