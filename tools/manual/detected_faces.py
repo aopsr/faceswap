@@ -457,6 +457,29 @@ class Filter():
              for face in frame_faces)))
         logger.trace("filter_mode: %s, frame meets criteria: %s", filter_mode, retval)
         return retval
+    
+    @property
+    def any_frame_misaligned(self):
+        frame_faces = self._detected_faces.current_faces[self._globals.frame_index]
+        distance = self._filter_distance
+        return any(face.aligned.average_distance > distance for face in frame_faces)
+    
+    @property
+    def next_frame_meets_criteria(self):
+        """ bool: ``True`` if the next frame meets the selected filter criteria otherwise
+        ``False`` """
+        filter_mode = self._globals.filter_mode
+        frame_faces = self._detected_faces.current_faces[self._globals.frame_index+1]
+        distance = self._filter_distance
+        retval = (
+            filter_mode == "All Frames" or
+            (filter_mode == "No Faces" and not frame_faces) or
+            (filter_mode == "Has Face(s)" and frame_faces) or
+            (filter_mode == "Multiple Faces" and len(frame_faces) > 1) or
+            (filter_mode == "Misaligned Faces" and any(face.aligned.average_distance > distance
+             for face in frame_faces)))
+        logger.trace("filter_mode: %s, next frame meets criteria: %s", filter_mode, retval)
+        return retval
 
     @property
     def _filter_distance(self):
@@ -833,6 +856,51 @@ class FaceUpdate():
             new_face.load_aligned(None)
 
         faces.extend(copied)
+        self._tk_face_count_changed.set(True)
+        self._globals.tk_update.set(True)
+    
+    def copy_and_update(self, frame_index, direction):
+        logger.debug("frame: %s, direction: %s", frame_index, direction)
+        faces = self._faces_at_frame_index(frame_index)
+        frames_with_faces = [idx for idx, faces in enumerate(self._detected_faces.current_faces)
+                             if len(faces) > 0]
+        if direction == "prev":
+            idx = next((idx for idx in reversed(frames_with_faces)
+                        if idx < frame_index), None)
+        else:
+            idx = next((idx for idx in frames_with_faces
+                        if idx > frame_index), None)
+        if idx is None:
+            # No previous/next frame available
+            return
+        logger.debug("Copying alignments from frame %s to frame: %s", idx, frame_index)
+
+        # aligned_face cannot be deep copied, so remove and recreate
+        to_copy = self._faces_at_frame_index(idx)[0]
+        to_copy._aligned = None  # pylint:disable=protected-access
+        copied = deepcopy(to_copy)
+
+        to_copy.load_aligned(None)
+        copied.load_aligned(None)
+
+        faces.append(copied)
+
+        # update location by simulate mouse drag
+        self.bounding_box(frame_index,
+                            len(self._faces_at_frame_index(frame_index))-1,
+                            copied.left, copied.width, copied.top, copied.height,
+                            aligner="FAN")
+        
+        # calculate center of alignments - TODO: make more precise based on angle
+        center = np.mean(copied.landmarks_xy[17:], axis=0)
+        center_bb = [copied.left + copied.width / 2, copied.top + copied.height / 2]
+        adjust_x = center_bb[0] - center[0]
+        adjust_y = center_bb[1] - center[1]
+
+        # adjust bounding box to be at center
+        copied.left = copied.left - adjust_x
+        copied.top = copied.top - adjust_y
+
         self._tk_face_count_changed.set(True)
         self._globals.tk_update.set(True)
 

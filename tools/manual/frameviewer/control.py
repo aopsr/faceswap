@@ -93,11 +93,21 @@ class Navigation():
             logger.trace("Stopping playback")
             self.tk_is_playing.set(False)
 
-    def increment_frame(self, frame_count=None, is_playing=False):
+    def increment_frame(self, frame_count=None, is_playing=False, check_next=False, check_misaligned=False):
         """ Update The frame navigation position to the next frame based on filter. """
         if not is_playing:
             self.stop_playback()
         position = self._get_safe_frame_index()
+
+        # check if next frame satisfies filter
+        if check_next and not self._det_faces.filter.next_frame_meets_criteria:
+            return True
+        
+        # check if current frame has any misaligned
+        if check_misaligned and self._det_faces.filter.any_frame_misaligned:
+            return True
+
+        # check if current frame satisfies filter after potential changes. If, so next frame index will be decremented.
         face_count_change = not self._det_faces.filter.frame_meets_criteria
         if face_count_change:
             position -= 1

@@ -6,6 +6,7 @@ import os
 import sys
 import tkinter as tk
 from tkinter import ttk
+from tkinter import simpledialog
 from time import sleep
 
 import cv2
@@ -236,6 +237,8 @@ class Manual(tk.Tk):
             "f10": lambda k=event.keysym: self._faces_frame.set_annotation_display(k),
             "c": lambda f=tk_pos.get(), d="prev": self._detected_faces.update.copy(f, d),
             "v": lambda f=tk_pos.get(), d="next": self._detected_faces.update.copy(f, d),
+            "e": "",
+            "p": "",
             "ctrl_s": self._detected_faces.save,
             "r": lambda f=tk_pos.get(): self._detected_faces.revert_to_saved(f)}
 
@@ -243,10 +246,37 @@ class Manual(tk.Tk):
         press = event.keysym.replace("KP_", "") if event.keysym.startswith("KP_") else event.keysym
         modifier = "_".join(val for key, val in modifiers.items() if event.state & key != 0)
         key_press = "_".join([modifier, press]) if modifier else press
-        if key_press.lower() in bindings:
-            logger.trace("key press: %s, action: %s", key_press, bindings[key_press.lower()])
+        key_press = key_press.lower()
+        if key_press in bindings:
+            logger.trace("key press: %s, action: %s", key_press, bindings[key_press])
             self.focus_set()
-            bindings[key_press.lower()]()
+            self._stop_auto_fill()
+            if key_press == "e":
+                if not self._display.navigation.increment_frame(check_next=True, check_misaligned=True):
+                    f = self._globals.tk_frame_index.get() # is already guaranteed to be + 1 from tk_pos
+                    self._detected_faces.update.copy_and_update(f, "prev")
+            elif key_press == "p":
+                nframes = simpledialog.askinteger(title="auto fill", prompt="# of frames to fill")
+                if nframes:
+                    self._globals._auto_fill_flag = True
+                    thread = MultiThread(self._auto_fill, nframes,
+                             thread_count=1,
+                             name=f"{self.__class__.__name__}.auto_fill")
+                    thread.start()
+            else:
+                bindings[key_press]()
+    
+    def _auto_fill(self, nframes):
+        for _ in range(nframes):
+            if not self._globals._auto_fill_flag:
+                return
+            if self._display.navigation.increment_frame(check_next=True, check_misaligned=True):
+                break
+            f = self._globals.tk_frame_index.get() # is already guaranteed to be + 1 from tk_pos
+            self._detected_faces.update.copy_and_update(f, "prev")
+    
+    def _stop_auto_fill(self):
+        self._globals._auto_fill_flag = False
 
     def _set_initial_layout(self):
         """ Set the favicon and the bottom frame position to correct location to display full
