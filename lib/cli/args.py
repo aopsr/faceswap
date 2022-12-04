@@ -1048,6 +1048,13 @@ class TrainArgs(FaceSwapArgs):
             group= ("model"),
             help= ("Pretraining")))
         argument_list.append(dict(
+            opts=("-lrd", "--learning-rate-dropout"),
+            action="store_true",
+            dest="lrd",
+            default=False,
+            group= ("model"),
+            help= ("Learning rate dropout")))
+        argument_list.append(dict(
             opts=("-bs", "--batch-size"),
             action=Slider,
             min_max=(1, 256),

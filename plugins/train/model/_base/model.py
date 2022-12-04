@@ -453,7 +453,8 @@ class ModelBase():
                               10 ** int(self.config["epsilon_exponent"]),
                               self._args.accumulate,
                               self.config["cosine_annealing"],
-                              self.config["warmup_steps"]).optimizer
+                              self.config["warmup_steps"],
+                              self._args.lrd).optimizer
         if self._settings.use_mixed_precision:
             optimizer = self._settings.loss_scale_optimizer(optimizer)
         if get_backend() == "amd":

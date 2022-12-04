@@ -313,7 +313,8 @@ class Optimizer():  # pylint:disable=too-few-public-methods
                  epsilon: float,
                  accumulate: int,
                  annealing: bool,
-                 warmup: int) -> None:
+                 warmup: int,
+                 lrd: bool) -> None:
         logger.debug("Initializing %s: (optimizer: %s, learning_rate: %s, autoclip: %s, "
                      ", epsilon: %s)", self.__class__.__name__, optimizer, learning_rate,
                      autoclip, epsilon)
@@ -321,11 +322,15 @@ class Optimizer():  # pylint:disable=too-few-public-methods
                                           dict(beta_1=0.5, beta_2=0.99, epsilon=epsilon)),
                             "adam": (optimizers.Adam,
                                      dict(beta_1=0.5, beta_2=0.99, epsilon=epsilon)),
-                            "adamw": (optimizers.AdamW,
-                                        dict(beta_1=0.5, beta_2=0.99, epsilon=epsilon)),
+                            "adamlrd": (optimizers.AdamLRD,
+                                     dict(beta_1=0.5, beta_2=0.99, epsilon=epsilon)),
+                            # "adamw": (optimizers.AdamW,
+                            #             dict(beta_1=0.5, beta_2=0.99, epsilon=epsilon)),
                             "nadam": (optimizers.Nadam,
                                       dict(beta_1=0.5, beta_2=0.99, epsilon=epsilon)),
                             "rms-prop": (optimizers.RMSprop, dict(epsilon=epsilon))}
+        if optimizer == "adam" and lrd:
+            optimizer = "adamlrd"
         optimizer_info = valid_optimizers[optimizer]
         self._optimizer: Callable = optimizer_info[0]
         self._kwargs: Dict[str, Any] = optimizer_info[1]
