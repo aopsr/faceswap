@@ -437,12 +437,12 @@ class AdamLRD(Adam):
 
         alpha =  coefficients['lr_t'] * (tf.sqrt(1 - coefficients['beta_2_power']) / (1 - coefficients['beta_1_power'])) * self.distrib.sample(m.shape)
         
-        m.assign_add((grad - m) * (1 - coefficients['beta_1_t']))
-        v.assign_add((tf.square(grad) - v) * (1 - coefficients['beta_2_t']))
+        m_t = m.assign_add((grad - m) * (1 - coefficients['beta_1_t']), use_locking=self._use_locking)
+        v_t = v.assign_add((tf.square(grad) - v) * (1 - coefficients['beta_2_t']), use_locking=self._use_locking)
     
-        var_update = var.assign_sub((m * alpha) / (tf.sqrt(v) + coefficients['epsilon']))
+        var_update = var.assign_sub((m * alpha) / (tf.sqrt(v) + coefficients['epsilon']), use_locking=self._use_locking)
 
-        return tf.group(*[var_update, m, v])
+        return tf.group(*[var_update, m_t, v_t])
 
 
 ## TODO: make mixed precision work with experimental

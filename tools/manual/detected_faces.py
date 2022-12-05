@@ -889,7 +889,7 @@ class FaceUpdate():
 
         faces.append(copied)
 
-        # update location by simulate mouse drag
+        # fetch new alignments
         self.bounding_box(frame_index,
                             len(self._faces_at_frame_index(frame_index))-1,
                             copied.left, copied.width, copied.top, copied.height,
