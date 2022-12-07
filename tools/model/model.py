@@ -123,6 +123,7 @@ class Inference():  # pylint:disable=too-few-public-methods
     def __init__(self, arguments: "argparse.Namespace") -> None:
         self._switch = arguments.swap_model
         self._format = arguments.format
+        self._fmen = arguments.fmen
         self._input_file, self._output_file = self._get_output_file(arguments.model_dir)
 
     def _get_output_file(self, model_dir: str) -> Tuple[str, str]:
@@ -155,7 +156,7 @@ class Inference():  # pylint:disable=too-few-public-methods
         logger.info("Loading model '%s'", self._input_file)
         model = keras.models.load_model(self._input_file, compile=False)
         logger.info("Creating inference model...")
-        inference = _Inference(model, self._switch).model
+        inference = _Inference(model, self._switch, self._fmen).model
         logger.info("Saving to: '%s'", self._output_file)
         inference.save(self._output_file)
 

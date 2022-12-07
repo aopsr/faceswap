@@ -179,8 +179,6 @@ class Model(ModelBase):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         output_size = self.config["output_size"]
-        if self.config["dec_type"] == "FMEN":
-            output_size /= 2
 
         if output_size % 32 != 0:
             raise FaceswapError("Phaze-A output shape must be a multiple of 32 (64 if using FMEN)")
@@ -903,8 +901,6 @@ class FullyConnected():  # pylint:disable=too-few-public-methods
             The number of filters scaled down for output size
         """
         output_size = self._config["output_size"]
-        if self._config["dec_type"] == "FMEN":
-            output_size /= 2
         scaled_dim = _scale_dim(output_size, self._final_dims)
         if scaled_dim == self._final_dims:
             logger.debug("filters don't require scaling. Returning: %s", original_filters)
@@ -1048,8 +1044,6 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
         var_x = inputs
         old_dim = K.int_shape(inputs)[1]
         output_size = self._config["output_size"]
-        if self._config["dec_type"] == "FMEN":
-            output_size /= 2
         new_dim = _scale_dim(output_size, old_dim)
         if new_dim != old_dim:
             old_shape = K.int_shape(inputs)[1:]
@@ -1215,8 +1209,6 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
         # De-convolve
         if not self._filters:
             output_size = self._config["output_size"]
-            if self._config["dec_type"] == "FMEN":
-                output_size /= 2
             upscales = int(np.log2(int(output_size) / K.int_shape(var_x)[1]))
             self._filters.extend(_get_curve(self._config["dec_max_filters"],
                                             self._config["dec_min_filters"],
@@ -1341,6 +1333,7 @@ class Decoder():  # pylint:disable=too-few-public-methods
         self._side = side
         self._input_shape = input_shape
         self._config = config
+        self.fmen = self._config["dec_type"] == "FMEN"
         logger.debug("Initialized: %s", self.__class__.__name__,)
 
     def __call__(self) -> keras.models.Model:
@@ -1368,25 +1361,22 @@ class Decoder():  # pylint:disable=too-few-public-methods
             var_x, var_y = upscales
         else:
             var_x = upscales
-        
-        fmen = self._config["dec_type"] == "FMEN"
 
         var_x = Conv2DOutput(3, self._config["dec_output_kernel"], 
-                            name="face_out", dtype="float16" if fmen else "float32")(var_x)
+                            name="face_out", dtype="float32")(var_x)
         if self._config["learn_mask"]:
             var_y = Conv2DOutput(1,
                                 self._config["dec_output_kernel"],
                                 name="mask_out",
-                                dtype="float16" if fmen else "float32")(var_y)
+                                dtype="float32")(var_y)
         
-        # if upscale
-        if fmen:
-            # FMEN
-            var_x = FMEN(scale=2, down_blocks=2)(var_x)
-            var_x = K.cast(var_x, "float32")
-            if self._config["learn_mask"]:
-                var_y = FMEN(in_ch=1, n_colors=1, scale=2, down_blocks=2)(var_y)
-                var_y = K.cast(var_y, "float32")
+        # # if upscale
+        # if self.fmen and self._is_predict:
+        #     var_x = FMEN()(var_x)
+        #     var_x = K.cast(var_x, "float32")
+        #     if self._config["learn_mask"]:
+        #         var_y = K.resize_images(var_y, 4, 4, "channels_last") # support batch size?
+        #         var_y = K.cast(var_y, "float32")
 
         outputs = [var_x]
         if self._config["learn_mask"]:

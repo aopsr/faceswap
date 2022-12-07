@@ -55,4 +55,10 @@ class PreviewArgs(FaceSwapArgs):
             dest="swap_model",
             default=False,
             help=_("Swap the model. Instead of A -> B, swap B -> A")))
+        argument_list.append(dict(
+            opts=("-fm", "--fmen"),
+            action="store_true",
+            dest="fmen",
+            default=False,
+            help=_("FMEN upscaling 4x")))
         return argument_list

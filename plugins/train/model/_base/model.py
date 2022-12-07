@@ -22,6 +22,8 @@ from plugins.train._config import Config
 from .io import IO, get_all_sub_models, Weights
 from .settings import Loss, Optimizer, Settings
 
+from lib.model.nn_blocks import FMEN
+
 if get_backend() == "amd":
     import keras
     from keras import backend as K
@@ -301,7 +303,7 @@ class ModelBase():
             if self._io.model_exists:
                 model = self._io._load()  # pylint:disable=protected-access
                 if self._is_predict:
-                    inference = _Inference(model, self._args.swap_model)
+                    inference = _Inference(model, self._args.swap_model, self._args.fmen)
                     self._model = inference.model
                 else:
                     self._model = model
@@ -854,13 +856,15 @@ class _Inference():  # pylint:disable=too-few-public-methods
         ``True`` if the swap should be performed "B" > "A" ``False`` if the swap should be
         "A" > "B"
     """
-    def __init__(self, saved_model: keras.models.Model, switch_sides: bool) -> None:
+    def __init__(self, saved_model: keras.models.Model, switch_sides: bool, fmen: bool = False) -> None:
         logger.debug("Initializing: %s (saved_model: %s, switch_sides: %s)",
                      self.__class__.__name__, saved_model, switch_sides)
         self._config = saved_model.get_config()
 
         self._input_idx = 1 if switch_sides else 0
         self._output_idx = 0 if switch_sides else 1
+
+        self._fmen = fmen
 
         self._input_names = [inp[0] for inp in self._config["input_layers"]]
         self._model = self._make_inference_model(saved_model)
@@ -897,7 +901,7 @@ class _Inference():  # pylint:disable=too-few-public-methods
         retval = [(node[0], node[2]) for node in anodes]
         return retval
 
-    def _make_inference_model(self, saved_model: keras.models.Model) -> keras.models.Model:
+    def _make_inference_model(self, saved_model: keras.models.Model) -> keras.models.Model: ## TODO: insert FMEN decoder here if necessary
         """ Extract the sub-models from the saved model that are required for inference.
 
         Parameters
@@ -948,6 +952,30 @@ class _Inference():  # pylint:disable=too-few-public-methods
                 model = layer(layer_inputs)
             compiled_layers[layer.name] = model
             retval = KerasModel(model_inputs, model, name=f"{saved_model.name}_inference")
+        
+        if self._fmen:
+            inbound_layer = compiled_layers[list(struct.keys())[0]]
+            model = FMEN(inference=True)(inbound_layer)
+            retval = KerasModel(model_inputs, model, name=f"{saved_model.name}_inference")
+
+            
+            layers = retval.layers
+            print(layers)
+            for layer in layers:
+                print(layer.name)
+            try:
+                flag = True
+                for layer in layers:
+                    if flag and "decoder" not in layer.name:
+                        continue
+                    if len(layer.trainable_weights):
+                        names = [weight.name.replace("kernel", "weight") for weight in layer.trainable_weights]
+                        weights = [d.get(name, None) for name in names]
+
+                        layer.set_weights(weights)
+            except Exception as e:
+                print(str(e))
+
         logger.debug("Compiled inference model '%s': %s", retval.name, retval)
         return retval
 
@@ -972,10 +1000,12 @@ class _Inference():  # pylint:disable=too-few-public-methods
         current_layers = [outputs[0]]
         next_layers = []
         struct = OrderedDict()
+
         drop_input = self._input_names[abs(self._input_idx - 1)]
         switch_input = self._input_names[self._input_idx]
         while True:
             layer_info = current_layers.pop(0)
+            print(layer_info)
             current_layer = next(lyr for lyr in self._config["layers"]
                                  if lyr["name"] == layer_info[0])
             inbound = current_layer["inbound_nodes"]

@@ -192,7 +192,7 @@ class BlurPool(Layer):
         return x
 
 class Xseg(KSession):
-    """ Xseg ported from DFL"""
+    """ Xseg ported from DFL by @aopsr"""
     def __init__(self, model_path, allow_growth, exclude_gpus):
         super().__init__("Xseg",
                          model_path,

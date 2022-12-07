@@ -914,6 +914,13 @@ class ConvertArgs(ExtractConvertArgs):
             group=_("settings"),
             help=_("Swap the model. Instead converting from of A -> B, converts B -> A")))
         argument_list.append(dict(
+            opts=("-fm", "--fmen"),
+            action="store_true",
+            dest="fmen",
+            default=False,
+            group=_("settings"),
+            help=_("FMEN upscaling 4x")))
+        argument_list.append(dict(
             opts=("-sp", "--singleprocess"),
             action="store_true",
             default=False,
