@@ -801,6 +801,22 @@ class RRRB():
 
         return out
 
+class RRRBInference():
+    """ Residual in residual reparameterizable block.
+    Using reparameterizable block to replace single 3x3 convolution.
+
+    Args:
+        n_feats (int): The number of feature maps.
+    """
+
+    def __init__(self, n_feats):
+        self.rep_conv = Conv2D(n_feats, 3, padding="same")
+    
+    def __call__(self, x: Tensor) -> Tensor:
+        out = self.rep_conv(x)
+
+        return out
+
 class ERB():
     """ Enhanced residual block for building FEMN.
 
@@ -820,6 +836,26 @@ class ERB():
         out = RRRB(self.n_feats, self.ratio)(x)
         out = LeakyReLU(alpha=alpha)(out)
         out = RRRB(self.n_feats, self.ratio)(out)
+
+        return out
+
+class ERBInference():
+    """ Enhanced residual block for building FEMN.
+
+    Diagram:
+        --RRRB--LeakyReLU--RRRB--
+        
+    Args:
+        n_feats (int): Number of feature maps.
+    """
+
+    def __init__(self, n_feats, ratio=0):
+        self.n_feats = n_feats
+    
+    def __call__(self, x: Tensor) -> Tensor:
+        out = RRRBInference(self.n_feats)(x)
+        out = LeakyReLU(alpha=alpha)(out)
+        out = RRRBInference(self.n_feats)(out)
 
         return out
 
@@ -882,6 +918,50 @@ class HFAB():
         return Multiply()([out, x])
 
 
+class HFABInference():
+    """ High-Frequency Attention Block.
+
+    Diagram:
+        ---BN--Conv--[ERB]*up_blocks--BN--Conv--BN--Sigmoid--*--
+         |___________________________________________________|
+
+    Args:
+        n_feats (int): Number of HFAB input feature maps.
+        up_blocks (int): Number of ERBs for feature extraction in this HFAB.
+        mid_feats (int): Number of feature maps in ERB.
+
+    Note:
+        Batch Normalization (BN) is adopted to introduce global contexts and achieve sigmoid unsaturated area.
+
+    """
+
+    def __init__(self, n_feats, up_blocks, mid_feats, ratio=0):
+        self._name = _get_name("HFAB")
+        self.n_feats = n_feats
+        self.up_blocks = up_blocks
+        self.mid_feats = mid_feats
+
+    def __call__(self, x: Tensor) -> Tensor:
+        n_feats = self.n_feats
+        mid_feats = self.mid_feats
+        up_blocks = self.up_blocks
+
+        # squeeze
+        out = Conv2D(mid_feats, 3, padding="same")(x)
+        out = LeakyReLU(alpha=alpha)(out)
+
+        for _ in range(up_blocks):
+            out = ERBInference(mid_feats)(out)
+        out = LeakyReLU(alpha=alpha)(out)
+
+        # excite
+        out = Conv2D(n_feats, 3, padding="same")(out)
+
+        out = Activation("sigmoid", dtype="float32")(out)
+
+        return Multiply()([out, x])
+
+
 class FMEN():
     """ Fast and Memory-Efficient Network Towards Efficient Image Super-Resolution
 
@@ -897,7 +977,8 @@ class FMEN():
                 n_colors: int = 3,
                 scale: int = 4,
                 n_feats: int = 50,
-                down_blocks: int = 4):
+                down_blocks: int = 4,
+                inference: bool = True):
         self.down_blocks = down_blocks
         self.up_blocks = [2] + [1] * self.down_blocks
         self.n_feats = n_feats
@@ -909,6 +990,9 @@ class FMEN():
         self.n_colors = n_colors
         self.in_ch = in_ch
         self._name = _get_name("fmen")
+        self.inference = inference
+        self.hfab = HFABInference if inference else HFAB
+        self.erb = ERBInference if inference else ERB
 
         if self.n_colors * (self.scale[0]**2) > self.n_feats:
             print("Warning: n_colors * (scale**2) > n_feats.")
@@ -930,12 +1014,12 @@ class FMEN():
 
         # warm up
         h = Conv2D(n_feats, 3, padding="same", name="warmup_conv2d")(x)
-        h = HFAB(n_feats, up_blocks[0], mid_feats-4, attention_expand_ratio)(h)
+        h = self.hfab(n_feats, up_blocks[0], mid_feats-4, attention_expand_ratio)(h)
 
         # body
         for i in range(self.down_blocks):
-            h = ERB(n_feats, backbone_expand_ratio)(h)
-            h = HFAB(n_feats, up_blocks[i+1], mid_feats, attention_expand_ratio)(h)
+            h = self.erb(n_feats, backbone_expand_ratio)(h)
+            h = self.hfab(n_feats, up_blocks[i+1], mid_feats, attention_expand_ratio)(h)
 
         h = Conv2D(n_feats, 3, padding="same", name="lr_conv")(h)
 
