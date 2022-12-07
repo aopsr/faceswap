@@ -519,7 +519,7 @@ def crash_log() -> str:
     """
     original_traceback = traceback.format_exc().encode("utf-8")
     path = os.path.dirname(os.path.realpath(sys.argv[0]))
-    filename = os.path.join(path, datetime.now().strftime("crash_report.%Y.%m.%d.%H%M%S%f.log"))
+    filename = os.path.join(path, "crashreports", datetime.now().strftime("crash_report.%Y.%m.%d.%H%M%S%f.log"))
     freeze_log = [line.encode("utf-8") for line in _DEBUG_BUFFER]
     try:
         from lib.sysinfo import sysinfo  # pylint:disable=import-outside-toplevel
