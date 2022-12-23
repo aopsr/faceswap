@@ -954,23 +954,31 @@ class _Inference():  # pylint:disable=too-few-public-methods
             retval = KerasModel(model_inputs, model, name=f"{saved_model.name}_inference")
         
         if self._fmen:
-            inbound_layer = compiled_layers[list(struct.keys())[0]]
-            model = FMEN(inference=True)(inbound_layer)
+            next_input = compiled_layers[list(struct.keys())[0]]
+            model = FMEN(inference=True)(next_input)
             retval = KerasModel(model_inputs, model, name=f"{saved_model.name}_inference")
 
-            
+            try:
+                d = np.load("fmen_weights.npz")
+            except:
+                raise Exception("fmen model not found")
+
             layers = retval.layers
-            print(layers)
-            for layer in layers:
-                print(layer.name)
             try:
                 flag = True
                 for layer in layers:
-                    if flag and "decoder" not in layer.name:
+                    if flag:
+                        if "decoder" in layer.name:
+                            flag = False
                         continue
                     if len(layer.trainable_weights):
-                        names = [weight.name.replace("kernel", "weight") for weight in layer.trainable_weights]
-                        weights = [d.get(name, None) for name in names]
+                        names = [weight.name.replace("kernel", "weight").replace("/", ".")[:-2] for weight in layer.trainable_weights]
+                        weights = []
+                        for name in names:
+                            weight = d.get(name, None)
+                            if weight is not None and "weight" in name:
+                                weight = np.transpose(weight, axes=[2, 3, 1, 0]) # convert NCHW to NHWC
+                            weights.append(weight)
 
                         layer.set_weights(weights)
             except Exception as e:
@@ -1005,7 +1013,6 @@ class _Inference():  # pylint:disable=too-few-public-methods
         switch_input = self._input_names[self._input_idx]
         while True:
             layer_info = current_layers.pop(0)
-            print(layer_info)
             current_layer = next(lyr for lyr in self._config["layers"]
                                  if lyr["name"] == layer_info[0])
             inbound = current_layer["inbound_nodes"]

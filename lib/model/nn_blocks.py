@@ -809,8 +809,9 @@ class RRRBInference():
         n_feats (int): The number of feature maps.
     """
 
-    def __init__(self, n_feats):
-        self.rep_conv = Conv2D(n_feats, 3, padding="same")
+    def __init__(self, n_feats, name=None):
+        name = name or _get_name("RRRB")
+        self.rep_conv = Conv2D(n_feats, 3, padding="same", name=name+".rep_conv")
     
     def __call__(self, x: Tensor) -> Tensor:
         out = self.rep_conv(x)
@@ -849,13 +850,15 @@ class ERBInference():
         n_feats (int): Number of feature maps.
     """
 
-    def __init__(self, n_feats, ratio=0):
+    def __init__(self, n_feats, ratio=0, name=None):
         self.n_feats = n_feats
+        self.name = name or _get_name("ERB")
     
     def __call__(self, x: Tensor) -> Tensor:
-        out = RRRBInference(self.n_feats)(x)
+        name = self.name
+        out = RRRBInference(self.n_feats, name=name+".conv1")(x)
         out = LeakyReLU(alpha=alpha)(out)
-        out = RRRBInference(self.n_feats)(out)
+        out = RRRBInference(self.n_feats, name=name+".conv2")(out)
 
         return out
 
@@ -935,8 +938,8 @@ class HFABInference():
 
     """
 
-    def __init__(self, n_feats, up_blocks, mid_feats, ratio=0):
-        self._name = _get_name("HFAB")
+    def __init__(self, n_feats, up_blocks, mid_feats, ratio=0, name=None):
+        self._name = name or _get_name("HFAB")
         self.n_feats = n_feats
         self.up_blocks = up_blocks
         self.mid_feats = mid_feats
@@ -945,17 +948,18 @@ class HFABInference():
         n_feats = self.n_feats
         mid_feats = self.mid_feats
         up_blocks = self.up_blocks
+        name = self._name
 
         # squeeze
-        out = Conv2D(mid_feats, 3, padding="same")(x)
+        out = Conv2D(mid_feats, 3, padding="same", name=name+".squeeze")(x)
         out = LeakyReLU(alpha=alpha)(out)
 
-        for _ in range(up_blocks):
-            out = ERBInference(mid_feats)(out)
+        for i in range(up_blocks):
+            out = ERBInference(mid_feats, name=f"{name}.convs.{i}")(out)
         out = LeakyReLU(alpha=alpha)(out)
 
         # excite
-        out = Conv2D(n_feats, 3, padding="same")(out)
+        out = Conv2D(n_feats, 3, padding="same", name=name+".excitate")(out)
 
         out = Activation("sigmoid", dtype="float32")(out)
 
@@ -1013,24 +1017,25 @@ class FMEN():
         x = Conv2D(n_feats, 3, padding="same", name="head")(x)
 
         # warm up
-        h = Conv2D(n_feats, 3, padding="same", name="warmup_conv2d")(x)
-        h = self.hfab(n_feats, up_blocks[0], mid_feats-4, attention_expand_ratio)(h)
+        h = Conv2D(n_feats, 3, padding="same", name="warmup.0")(x)
+        h = self.hfab(n_feats, up_blocks[0], mid_feats-4, attention_expand_ratio, name="warmup.1")(h)
 
         # body
         for i in range(self.down_blocks):
-            h = self.erb(n_feats, backbone_expand_ratio)(h)
-            h = self.hfab(n_feats, up_blocks[i+1], mid_feats, attention_expand_ratio)(h)
+            h = self.erb(n_feats, backbone_expand_ratio, name=f"ERBs.{i}")(h)
+            h = self.hfab(n_feats, up_blocks[i+1], mid_feats, attention_expand_ratio, name=f"HFABs.{i}")(h)
 
         h = Conv2D(n_feats, 3, padding="same", name="lr_conv")(h)
 
         h = Add()([h, x])
 
         # tail
-        x = Conv2D(n_colors*(scale**2), 3, padding="same", name="tail")(h)
+        x = Conv2D(n_colors*(scale**2), 3, padding="same", name="tail.0")(h)
         x = PixelShuffler(name=f"{self._name}_pixelshuffler",
                               size=scale)(x)
 
         return x
+        
 
 # << OTHER BLOCKS >>
 class ResidualBlock():  # pylint:disable=too-few-public-methods
