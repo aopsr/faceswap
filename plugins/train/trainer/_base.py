@@ -265,8 +265,8 @@ class TrainerBase():
         logs = {log[0]: log[1]
                 for log in zip(self._model.state.loss_names, loss)}
 
-        if get_tf_version() > 2.7:
-            # Bug in TF 2.8/2.9 where batch recording got deleted.
+        if get_tf_version() > (2, 7):
+            # Bug in TF 2.8/2.9/2.10 where batch recording got deleted.
             # ref: https://github.com/keras-team/keras/issues/16173
             with tf.summary.record_if(True), self._tensorboard._train_writer.as_default():  # noqa pylint:disable=protected-access,not-context-manager
                 for name, value in logs.items():
