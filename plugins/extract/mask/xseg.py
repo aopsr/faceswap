@@ -34,9 +34,9 @@ class Mask(Masker):
         self.name = "Xseg"
         self.input_size = 256
         # to determine
-        self.vram = 2944
+        self.vram = 3714
         self.vram_warnings = 1088  # at BS 1. OOMs at higher batch sizes
-        self.vram_per_batch = 400
+        self.vram_per_batch = 114
         self.batchsize = self.config["batch-size"]
 
     def init_model(self):
