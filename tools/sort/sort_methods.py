@@ -911,13 +911,12 @@ class SortFace(SortMethod):
 
         Parameters
         ----------
-        items: list of tuples
-            filename: str
-                The filename of the currently processing image
-            image: :class:`np.ndarray`
-                A face image loaded from disk
-            alignments: dict or ``None``
-                The alignments dictionary for the aligned face or ``None``
+        filename: str
+            The filename of the currently processing image
+        image: :class:`np.ndarray`
+            A face image loaded from disk
+        alignments: dict or ``None``
+            The alignments dictionary for the aligned face or ``None``
         """
         if len(faces):
             embeddings = self._vgg_face.predict(np.array(faces))
