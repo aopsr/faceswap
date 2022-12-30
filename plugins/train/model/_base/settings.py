@@ -247,7 +247,7 @@ class Loss():
             The amount of weight to apply to the given loss function
         """
         logger.debug("Adding loss function: %s, weight: %s", loss_function, weight)
-        loss_wrapper.add_loss(self._get_function(loss_function),
+        loss_wrapper.add_loss(self._get_function(loss_function), # TODO: if resolution >= 256, half weights dssim with filter_size at res/11.6 and res/23.2. otherwise filter_size res/11.6
                               weight=weight,
                               mask_channel=self._mask_channels[0])
 
@@ -257,7 +257,7 @@ class Loss():
             multiplier = self._config[section] * 1.
             if multiplier > 1.:
                 logger.debug("Adding section loss %s: %s", section, multiplier)
-                loss_wrapper.add_loss(self._get_function(loss_function),
+                loss_wrapper.add_loss(self._get_function(loss_function), # other option MAE like DFL
                                       weight=weight * multiplier,
                                       mask_channel=mask_channel)
             channel_idx += 1
