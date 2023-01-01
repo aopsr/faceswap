@@ -48,6 +48,10 @@ class Mask():  # pylint:disable=too-few-public-methods
                             full_frame=arguments.full_frame,
                             suffix=self._get_output_suffix(arguments))
         self._counts = dict(face=0, skip=0, update=0)
+        self._frame_ranges: Optional[List[List[int, int]]] = arguments.frame_ranges
+        if self._frame_ranges is not None:
+            self._frame_ranges = [r.split("-") for r in self._frame_ranges]
+            self._frame_ranges = [[int(r[0]), int(r[1])] for r in self._frame_ranges]
 
         self._check_input(arguments.input)
         self._saver = self._set_saver(arguments)
@@ -268,6 +272,10 @@ class Mask():  # pylint:disable=too-few-public-methods
             if not self._alignments.frame_has_faces(frame):
                 logger.debug("Skipping frame with no faces: '%s'", frame)
                 continue
+            if self._frame_ranges is not None: # skip frames not in range, assume .png extension
+                frame_id = int(frame.split("_")[-1][:-4])
+                if not any(frame_id < r[1] and frame_id > r[0] for r in self._frame_ranges):
+                    continue
 
             faces_in_frame = self._alignments.get_faces_in_frame(frame)
             self._counts["face"] += len(faces_in_frame)

@@ -102,6 +102,13 @@ class MaskArgs(FaceSwapArgs):
                    "\nL|output: Don't update the masks, just output them for review in the given "
                    "output folder.")))
         argument_list.append(dict(
+            opts=("-fr", "--frame-ranges"),
+            type=str,
+            nargs="+",
+            group=_("Frame Processing"),
+            help=_("Frame ranges to apply transfer to e.g. For frames 10 to 50 and 90 to 100 use "
+                   "--frame-ranges 10-50 90-100.")))
+        argument_list.append(dict(
             opts=("-o", "--output-folder"),
             action=DirFullPaths,
             dest="output",
