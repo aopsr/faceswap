@@ -158,6 +158,17 @@ class Converter():
                                                                 self._coverage_ratio,
                                                                 configfile=self._configfile,
                                                                 config=config)
+        if self._args.secondary_mask_type != "none":
+            self._adjustments.secondary_mask = PluginLoader.get_converter("mask",
+                                                            "mask_blend",
+                                                            disable_logging=disable_logging)(
+                                                                self._args.secondary_mask_type,
+                                                                self._output_size,
+                                                                self._coverage_ratio,
+                                                                configfile=self._configfile,
+                                                                config=config)
+        else:
+            self._adjustments.secondary_mask = None
 
         if self._args.color_adjustment != "none" and self._args.color_adjustment is not None:
             self._adjustments.color = PluginLoader.get_converter("color",
@@ -403,16 +414,29 @@ class Converter():
             The raw mask with no erosion or blurring applied
         """
         logger.trace("Getting mask. Image shape: %s", new_face.shape)  # type: ignore
+        flag = True # if use primary mask or not
         if self._args.mask_type not in ("none", "predicted"):
-            mask_centering = detected_face.mask[self._args.mask_type].stored_centering
+            if detected_face.mask.get(self._args.mask_type, None) is not None:
+                mask_centering = detected_face.mask[self._args.mask_type].stored_centering
+            else:
+                mask_centering = detected_face.mask[self._args.secondary_mask_type].stored_centering
+                flag = False
         else:
             mask_centering = "face"  # Unused but requires a valid value
-        assert self._adjustments.mask is not None
-        mask, raw_mask = self._adjustments.mask.run(detected_face,
-                                                    reference_face.pose.offset[mask_centering],
-                                                    reference_face.pose.offset[self._centering],
-                                                    self._centering,
-                                                    predicted_mask=predicted_mask)
+        if flag:
+            assert self._adjustments.mask is not None
+            mask, raw_mask = self._adjustments.mask.run(detected_face,
+                                                        reference_face.pose.offset[mask_centering],
+                                                        reference_face.pose.offset[self._centering],
+                                                        self._centering,
+                                                        predicted_mask=predicted_mask)
+        else:
+            assert self._adjustments.secondary_mask is not None
+            mask, raw_mask = self._adjustments.secondary_mask.run(detected_face,
+                                                        reference_face.pose.offset[mask_centering],
+                                                        reference_face.pose.offset[self._centering],
+                                                        self._centering,
+                                                        predicted_mask=predicted_mask)
         logger.trace("Adding mask to alpha channel")  # type: ignore
         new_face = np.concatenate((new_face, mask), -1)
         logger.trace("Got mask. Image shape: %s", new_face.shape)  # type: ignore

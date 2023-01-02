@@ -741,6 +741,18 @@ class ConvertArgs(ExtractConvertArgs):
                    "\nL|predicted: If the 'Learn Mask' option was enabled during training, this "
                    "will use the mask that was created by the trained model.")))
         argument_list.append(dict(
+            opts=("-SM", "--secondary-mask-type"),
+            action=Radio,
+            type=str.lower,
+            dest="secondary_mask_type",
+            default="none",
+            choices=PluginLoader.get_available_extractors("mask",
+                                                          add_none=True,
+                                                          extend_plugin=True) + ["predicted"],
+            group=_("Plugins"),
+            help=_("R|Secondary mask to use as fallback if primary mask does not exist"
+                   "\nL|none: Same as primary.")))
+        argument_list.append(dict(
             opts=("-w", "--writer"),
             action=Radio,
             type=str,

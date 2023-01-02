@@ -169,7 +169,7 @@ class Convert():  # pylint:disable=too-few-public-methods
 
         if (not self._args.on_the_fly and
                 self._args.mask_type not in ("none", "predicted") and
-                not self._alignments.mask_is_valid(self._args.mask_type)):
+                not self._alignments.mask_is_valid(self._args.mask_type, self._args.secondary_mask_type)):
             msg = (f"You have selected the Mask Type `{self._args.mask_type}` but at least one "
                    "face does not have this mask stored in the Alignments File.\nYou should "
                    "generate the required masks with the Mask Tool or set the Mask Type option to "

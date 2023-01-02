@@ -389,7 +389,7 @@ class Alignments():
         logger.trace("'%s': %s", frame_name, retval)  # type:ignore
         return retval
 
-    def mask_is_valid(self, mask_type: str) -> bool:
+    def mask_is_valid(self, mask_type: str, secondary_mask_type: str) -> bool:
         """ Ensure the given ``mask_type`` is valid for the alignments :attr:`data`.
 
         Every face in the alignments :attr:`data` must have the given mask type to successfully
@@ -399,6 +399,8 @@ class Alignments():
         ----------
         mask_type: str
             The mask type to check against the current alignments :attr:`data`
+        secondary_mask_type: str
+            The secondary mask type to check against the current alignments :attr:`data`
 
         Returns
         -------
@@ -406,8 +408,9 @@ class Alignments():
             ``True`` if all faces in the current alignments possess the given ``mask_type``
             otherwise ``False``
         """
-        retval = any((face.get("mask", None) is not None and
-                      face["mask"].get(mask_type, None) is not None)
+        retval = all((face.get("mask", None) is not None and
+                      (face["mask"].get(mask_type, None) is not None or 
+                      face["mask"].get(secondary_mask_type, None) is not None))
                      for val in self._data.values()
                      for face in val["faces"])
         logger.debug(retval)
