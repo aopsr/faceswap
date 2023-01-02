@@ -311,16 +311,17 @@ class FaceswapControl():
             logger.trace("Not loss message. Returning False")
             return False
 
-        loss = self.consoleregex["loss"].findall(string)
-        if len(loss) != 2 or not all(len(itm) == 3 for itm in loss):
-            logger.trace("Not loss message. Returning False")
-            return False
+        message = "Total Iterations: " + string[13:].replace(",", "").replace("] [", " [").strip()
+        # loss = self.consoleregex["loss"].findall(string)
+        # if len(loss) != 2 or not all(len(itm) == 3 for itm in loss):
+        #     logger.trace("Not loss message. Returning False")
+        #     return False
 
-        message = f"Total Iterations: {int(loss[0][0])} | "
-        message += "  ".join([f"{itm[1]}: {itm[2]}" for itm in loss])
-        if not message:
-            logger.trace("Error creating loss message. Returning False")
-            return False
+        # message = f"Total Iterations: {int(loss[0][0])} | "
+        # message += "  ".join([f"{itm[1]}: {itm[2]}" for itm in loss])
+        # if not message:
+        #     logger.trace("Error creating loss message. Returning False")
+        #     return False
 
         iterations = self.train_stats["iterations"]
 
