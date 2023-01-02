@@ -202,6 +202,7 @@ class TrainerBase():
             not required then this should be ``None``. Otherwise all values should be full paths
             the keys being `input_a`, `input_b`, `output`.
         """
+        iter_time = time.time()
         self._model.state.increment_iterations()
         logger.trace("Training one step: (iteration: %s)", self._model.iterations)  # type: ignore
         snapshot_interval = self._model.command_line_arguments.snapshot_interval
@@ -246,7 +247,7 @@ class TrainerBase():
             raise
         self._log_tensorboard(loss)
         loss = self._collate_and_store_loss(loss[1:])
-        self._print_loss(loss)
+        self._print_loss(loss, iter_time)
         if do_snapshot:
             self._model.snapshot()
         self._update_viewers(viewer, timelapse_kwargs)
@@ -313,7 +314,7 @@ class TrainerBase():
         logger.trace("original loss: %s, combined_loss: %s", loss, combined_loss)  # type: ignore
         return combined_loss
 
-    def _print_loss(self, loss: List[float]) -> None:
+    def _print_loss(self, loss: List[float], iter_time) -> None:
         """ Outputs the loss for the current iteration to the console.
 
         Parameters
@@ -325,7 +326,13 @@ class TrainerBase():
         output = ", ".join([f"Loss {side}: {side_loss:.5f}"
                             for side, side_loss in zip(("A", "B"), loss)])
         timestamp = time.strftime("%H:%M:%S")
-        output = f"[{timestamp}] [#{self._model.iterations:05d}] {output}"
+        iter_time = time.time() - iter_time
+        if iter_time >= 10:
+            time_string = "{0:.5s}s".format('{:0.4f}'.format(iter_time))
+        else:
+            time_string = "{0:03d}ms".format(int(iter_time*1000))
+
+        output = f"[{timestamp}] [#{self._model.iterations:05d}] [{time_string}] {output}"
         try:
             print(f"\r{output}", end="")
         except OSError as err:
