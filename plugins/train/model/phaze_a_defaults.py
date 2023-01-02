@@ -67,7 +67,7 @@ _ENCODERS = sorted(_ENCODERS)
 _DEFAULTS = dict(
     # General
     output_size=dict(
-        default=128,
+        default=256,
         info="Resolution (in pixels) of the output image to generate.\n"
              "BE AWARE Larger resolution will dramatically increase VRAM requirements.",
         datatype=int,
@@ -138,7 +138,7 @@ _DEFAULTS = dict(
 
     # Encoder
     enc_architecture=dict(
-        default="fs_original",
+        default="efficientnet_v2_b0",
         info="The encoder architecture to use. See the relevant config sections for specific "
              "architecture tweaking.\nNB: For keras based pre-built models, the global "
              "initializers and padding options will be ignored for the selected encoder."
@@ -190,7 +190,7 @@ _DEFAULTS = dict(
         group="encoder",
         fixed=True),
     enc_scaling=dict(
-        default=7,
+        default=60,
         info="Input scaling for the encoder. Some of the encoders have large input sizes, which "
              "often are not helpful for Faceswap. This setting scales the dimensional space that "
              "the encoder works in. For example an encoder with a maximum input size of 224px "
@@ -227,7 +227,7 @@ _DEFAULTS = dict(
         choices=["average_pooling", "dense", "max_pooling"],
         fixed=True),
     bottleneck_norm=dict(
-        default="none",
+        default="layer",
         info="Apply a normalization layer after encoder output and prior to the bottleneck."
              "\n\tnone - Do not apply a normalization layer"
              "\n\tinstance - Apply Instance Normalization"
@@ -240,7 +240,7 @@ _DEFAULTS = dict(
         group="bottleneck",
         fixed=True),
     bottleneck_size=dict(
-        default=1024,
+        default=512,
         info="If using a Dense layer for the bottleneck, then this is the number of nodes to use.",
         datatype=int,
         rounding=128,
@@ -269,7 +269,7 @@ _DEFAULTS = dict(
         group="hidden layers",
         fixed=True),
     fc_min_filters=dict(
-        default=1024,
+        default=512,
         info="The number of filters to use for the initial fully connected layer. The number of "
              "nodes actually used is: fc_min_filters x fc_dimensions x fc_dimensions.\nNB: This "
              "value may be scaled down, depending on output resolution.",
@@ -279,7 +279,7 @@ _DEFAULTS = dict(
         group="hidden layers",
         fixed=True),
     fc_max_filters=dict(
-        default=1024,
+        default=512,
         info="This is the number of filters to be used in the final reshape layer at the end of "
              "the fully connected layers. The actual number of nodes used for the final fully "
              "connected layer is: fc_min_filters x fc_dimensions x fc_dimensions.\nNB: This value "
@@ -326,7 +326,7 @@ _DEFAULTS = dict(
         group="hidden layers",
         fixed=False),
     fc_upsampler=dict(
-        default="upsample2d",
+        default="subpixel",
         info="The type of dimensional upsampling to perform at the end of the fully connected "
              "layers, if upsamples > 0. The number of filters used for the upscale layers will be "
              "the value given in 'fc_upsample_filters'."
@@ -346,7 +346,7 @@ _DEFAULTS = dict(
         gui_radio=False,
         fixed=True),
     fc_upsamples=dict(
-        default=1,
+        default=0,
         info="Some upsampling can occur within the Fully Connected layers rather than in the "
              "Decoder to increase the dimensional space. Set how many upscale layers should occur "
              "within the Fully Connected layers.",
@@ -424,9 +424,9 @@ _DEFAULTS = dict(
     # Decoder
     dec_type=dict(
         default="original",
-        info="The type of decoder to use. Original or FMEN.",
+        info="The type of decoder to use.",
         datatype=str,
-        choices=["original", "FMEN"],
+        choices=["original"],
         gui_radio=True,
         group="decoder",
         fixed=True),
@@ -455,7 +455,7 @@ _DEFAULTS = dict(
         rounding=1,
         info="It is possible to place some of the upscales at the end of the fully connected "
         "model. For models with split decoders, but a shared fully connected layer, this would "
-        "have the effect of saving some VRAM but possibly at the cost of introducing artefacts. "
+        "have the effect of saving some VRAM but possibly at the cost of introducing artifacts. "
         "For models with a shared decoder but split fully connected layers, this would have the "
         "effect of increasing VRAM usage by processing some of the upscales for each side rather "
         "than together.",
@@ -550,7 +550,7 @@ _DEFAULTS = dict(
         group="decoder",
         fixed=True),
     dec_gaussian=dict(
-        default=True,
+        default=False,
         info="Gaussian Noise acts as a regularization technique for preventing overfitting of "
              "data."
              "\n\tTrue - Apply a Gaussian Noise layer to each upscale."
@@ -559,7 +559,7 @@ _DEFAULTS = dict(
         group="decoder",
         fixed=True),
     dec_skip_last_residual=dict(
-        default=True,
+        default=False,
         info="If Residual blocks have been enabled, enabling this option will not apply a "
              "Residual block to the final upscaler."
              "\n\tTrue - Don't apply a Residual block to the final upscale."
@@ -570,7 +570,7 @@ _DEFAULTS = dict(
 
     # Weight management
     freeze_layers=dict(
-        default="keras_encoder",
+        default="keras_encoder decoder_both",
         info="If the command line option 'freeze-weights' is enabled, then the layers indicated "
              "here will be frozen the next time the model starts up. NB: Not all architectures "
              "contain all of the layers listed here, so any layers marked for freezing that are "
@@ -584,7 +584,7 @@ _DEFAULTS = dict(
         group="weights",
         fixed=False),
     load_layers=dict(
-        default="encoder",
+        default="encoder decoder_both",
         info="If the command line option 'load-weights' is populated, then the layers indicated "
              "here will be loaded from the given weights file if starting a new model. NB Not all "
              "architectures contain all of the layers listed here, so any layers marked for "

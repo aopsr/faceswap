@@ -38,7 +38,7 @@
   "dec_output_kernel": 5,
   "dec_gaussian": false,
   "dec_skip_last_residual": false,
-  "freeze_layers": "keras_encoder",
+  "freeze_layers": "keras_encoder decoder_both",
   "load_layers": "encoder decoder_both",
   "fs_original_depth": 4,
   "fs_original_min_filters": 128,
