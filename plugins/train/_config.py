@@ -238,7 +238,7 @@ class Config(FaceswapConfig):
             section=section,
             title="warmup_steps",
             datatype=int,
-            default=0,
+            default=250,
             min_max=(0, 1000),
             rounding=1,
             fixed=False,
@@ -293,7 +293,7 @@ class Config(FaceswapConfig):
             section=section,
             title="mixed_precision",
             datatype=bool,
-            default=False,
+            default=True,
             fixed=False,
             group="network",
             info="[Nvidia Only], NVIDIA GPUs can run operations in float16 faster than in "

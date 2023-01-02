@@ -1,12 +1,11 @@
 # Faceswap++
 
-Improved Faceswap fork
+Faceswap++ is an improved superset of Faceswap and DeepFaceLab.
 
 ## Installation
 See [INSTALL.md](INSTALL.md)
 
 ## Comparison
-Faceswap++ is an improved superset of Faceswap and DeepFaceLab.
 Feature | Faceswap  | Faceswap++ | DeepFaceLab |
 | - | - | - | - |
 | TF2 + AMP | ✅ | ✅ | ❌
