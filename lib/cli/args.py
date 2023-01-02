@@ -429,21 +429,7 @@ class ExtractArgs(ExtractConvertArgs):
                    "\nL|bisenet-fp: Relatively lightweight NN based mask that provides more "
                    "refined control over the area to be masked including full head masking "
                    "(configurable in mask settings)."
-                   "\nL|custom: A dummy mask that fills the mask area with all 1s or 0s "
-                   "(configurable in settings). This is only required if you intend to manually "
-                   "edit the custom masks yourself in the manual tool. This mask does not use the "
-                   "GPU so will not use any additional VRAM."
-                   "\nL|vgg-clear: Mask designed to provide smart segmentation of mostly frontal "
-                   "faces clear of obstructions. Profile faces and obstructions may result in "
-                   "sub-par performance."
-                   "\nL|vgg-obstructed: Mask designed to provide smart segmentation of mostly "
-                   "frontal faces. The mask model has been specifically trained to recognize "
-                   "some facial obstructions (hands and eyeglasses). Profile faces may result in "
-                   "sub-par performance."
-                   "\nL|unet-dfl: Mask designed to provide smart segmentation of mostly frontal "
-                   "faces. The mask model has been trained by community members and will need "
-                   "testing for further description. Profile faces may result in sub-par "
-                   "performance."
+                   "\nL|xseg: Xseg masker"
                    "\nThe auto generated masks are as follows:"
                    "\nL|components: Mask designed to provide facial segmentation based on the "
                    "positioning of landmark locations. A convex hull is constructed around the "
@@ -730,12 +716,12 @@ class ConvertArgs(ExtractConvertArgs):
             action=Radio,
             type=str.lower,
             dest="mask_type",
-            default="extended",
+            default="bisenet-fp_face",
             choices=PluginLoader.get_available_extractors("mask",
                                                           add_none=True,
                                                           extend_plugin=True) + ["predicted"],
             group=_("Plugins"),
-            help=_("R|Masker to use. NB: The mask you require must exist within the alignments "
+            help=_("R|Mask to use. NB: The mask you require must exist within the alignments "
                    "file. You can add additional masks with the Mask Tool."
                    "\nL|none: Don't use a mask."
                    "\nL|bisenet-fp_face: Relatively lightweight NN based mask that provides more "
@@ -745,25 +731,13 @@ class ConvertArgs(ExtractConvertArgs):
                    "\nL|bisenet-fp_head: Relatively lightweight NN based mask that provides more "
                    "refined control over the area to be masked (configurable in mask settings). "
                    "Use this version of bisenet-fp if your model is trained with 'head' centering."
-                   "\nL|custom_face: Custom user created, face centered mask."
-                   "\nL|custom_head: Custom user created, head centered mask."
                    "\nL|components: Mask designed to provide facial segmentation based on the "
                    "positioning of landmark locations. A convex hull is constructed around the "
                    "exterior of the landmarks to create a mask."
                    "\nL|extended: Mask designed to provide facial segmentation based on the "
                    "positioning of landmark locations. A convex hull is constructed around the "
                    "exterior of the landmarks and the mask is extended upwards onto the forehead."
-                   "\nL|vgg-clear: Mask designed to provide smart segmentation of mostly frontal "
-                   "faces clear of obstructions. Profile faces and obstructions may result in "
-                   "sub-par performance."
-                   "\nL|vgg-obstructed: Mask designed to provide smart segmentation of mostly "
-                   "frontal faces. The mask model has been specifically trained to recognize "
-                   "some facial obstructions (hands and eyeglasses). Profile faces may result in "
-                   "sub-par performance."
-                   "\nL|unet-dfl: Mask designed to provide smart segmentation of mostly frontal "
-                   "faces. The mask model has been trained by community members and will need "
-                   "testing for further description. Profile faces may result in sub-par "
-                   "performance."
+                   "\nL|xseg: Xseg mask"
                    "\nL|predicted: If the 'Learn Mask' option was enabled during training, this "
                    "will use the mask that was created by the trained model.")))
         argument_list.append(dict(
@@ -1010,22 +984,7 @@ class TrainArgs(FaceSwapArgs):
             help=_("R|Select which trainer to use. Trainers can be configured from the Settings "
                    "menu or the config folder."
                    "\nL|original: The original model created by /u/deepfakes."
-                   "\nL|dfaker: 64px in/128px out model from dfaker. Enable 'warp-to-landmarks' "
-                   "for full dfaker method."
-                   "\nL|dfl-h128: 128px in/out model from deepfacelab"
-                   "\nL|dfl-sae: Adaptable model from deepfacelab"
-                   "\nL|dlight: A lightweight, high resolution DFaker variant."
-                   "\nL|iae: A model that uses intermediate layers to try to get better details"
-                   "\nL|lightweight: A lightweight model for low-end cards. Don't expect great "
-                   "results. Can train as low as 1.6GB with batch size 8."
-                   "\nL|realface: A high detail, dual density model based on DFaker, with "
-                   "customizable in/out resolution. The autoencoders are unbalanced so B>A swaps "
-                   "won't work so well. By andenixa et al. Very configurable."
-                   "\nL|unbalanced: 128px in/out model from andenixa. The autoencoders are "
-                   "unbalanced so B>A swaps won't work so well. Very configurable."
-                   "\nL|villain: 128px in/out model from villainguy. Very resource hungry (You "
-                   "will require a GPU with a fair amount of VRAM). Good for details, but more "
-                   "susceptible to color differences.")))
+                   "\nL|phaze-a: Fully customizable model")))
         argument_list.append(dict(
             opts=("-su", "--summary"),
             action="store_true",
@@ -1136,11 +1095,11 @@ class TrainArgs(FaceSwapArgs):
         argument_list.append(dict(
             opts=("-s", "--save-interval"),
             action=Slider,
-            min_max=(10, 1000),
-            rounding=10,
+            min_max=(1000, 100000),
+            rounding=1000,
             type=int,
             dest="save_interval",
-            default=250,
+            default=10000,
             group=_("Saving"),
             help=_("Sets the number of iterations between each model save.")))
         argument_list.append(dict(
@@ -1150,7 +1109,7 @@ class TrainArgs(FaceSwapArgs):
             rounding=5000,
             type=int,
             dest="snapshot_interval",
-            default=25000,
+            default=100000,
             group=_("Saving"),
             help=_("Sets the number of iterations before saving a backup snapshot of the model "
                    "in it's current state. Set to 0 for off.")))

@@ -230,7 +230,7 @@ class PluginLoader():
                       if not item.name.startswith("_")
                       and not item.name.endswith("defaults.py")
                       and item.name.endswith(".py")]
-        extendable = ["bisenet-fp", "custom"]
+        extendable = ["bisenet-fp"]#, "custom"]
         if extend_plugin and extractor_type == "mask" and any(ext in extendable
                                                               for ext in extractors):
             for msk in extendable:
