@@ -491,7 +491,7 @@ class Config(FaceswapConfig):
             group="loss",
             min_max=(1, 40),
             rounding=1,
-            default=2,
+            default=3,
             fixed=False,
             info="The amount of priority to give to the mouth.\n\nThe value given here is as a "
                  "multiplier of the main loss score. For Example:"

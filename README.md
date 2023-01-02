@@ -71,7 +71,7 @@ The best performing models are IAE style but with G-block instead of shared full
 
 For optimized 256px model:
 1. RW, random flip until face reasonably formed (100k iters)
-2. Increase EMP (default eye 3, mouth 2), mouth to 10 if no teeth separation (optional during RW stage)
+2. Increase EMP (default eye and mouth 3), mouth to 10-20 if no teeth separation (optional during RW stage)
 3. No RW, no random flip until face is crisp (30k iters)
 
 6GB card (RTX A3000) trains optimized 256px model at BS 8 in 1 day.
