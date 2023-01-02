@@ -1,102 +1,68 @@
-# Faceswap
-<p align="center">
-  <a href="https://faceswap.dev"><img src="https://i.imgur.com/zHvjHnb.png"></img></a>
-<br />FaceSwap is a tool that utilizes deep learning to recognize and swap faces in pictures and videos.
-</p>
-<p align="center">
-<img src = "https://i.imgur.com/nWHFLDf.jpg"></img>
-</p>
+# Faceswap++
 
-<p align="center">
-<a href="https://discord.gg/FC54sYg"><img src="https://i.imgur.com/gIpztkv.png"></img></a>
-</p>
+Improved Faceswap fork
 
-![Build Status](https://github.com/deepfakes/faceswap/actions/workflows/pytest.yml/badge.svg) [![Documentation Status](https://readthedocs.org/projects/faceswap/badge/?version=latest)](https://faceswap.readthedocs.io/en/latest/?badge=latest)
+## Installation
+See [INSTALL.md](INSTALL.md)
 
-Make sure you check out [INSTALL.md](INSTALL.md) before getting started.
+## Comparison
+Faceswap++ is an improved superset of Faceswap and DeepFaceLab.
+Feature | Faceswap  | Faceswap++ | DeepFaceLab |
+| - | - | - | - |
+| TF2 + AMP | ✅ | ✅ | ❌
+| Custom models | ✅ | ✅ | ❌
+| Custom EMP | ✅ | ✅ | ❌
+| Easy extract cleanup | ✅ | ✅ | ❌
+| Xseg | ❌ | ✅ | ✅
+| MKL, etc | ❌ | ✅ | ✅
+| LRD | ❌ | ✅ | ✅
+| Pretraining | ❌ | ✅ | ✅
+| LR Warmup | ❌ | ✅ | ❌
+| Face tracking | ❌ | ✅ | ❌
+| Mix mask types | ❌ | ✅ | ❌
+| Gradient Accumulation | ❌ | ✅ | ❌
 
-- [faceswap](#faceswap)
-- [How To setup and run the project](#how-to-setup-and-run-the-project)
-- [Overview](#overview)
-  - [Extract](#extract)
-  - [Train](#train)
-  - [Convert](#convert)
-  - [GUI](#gui)
-- [General notes:](#general-notes)
-- [Help I need support!](#help-i-need-support)
-  - [Discord Server](#discord-server)
-  - [FaceSwap Forum](#faceswap-forum)
-- [How to contribute](#how-to-contribute)
-  - [For people interested in the generative models](#for-people-interested-in-the-generative-models)
-  - [For devs](#for-devs)
-  - [For non-dev advanced users](#for-non-dev-advanced-users)
-  - [For end-users](#for-end-users)
-
-# How To setup and run the project
-FaceSwap is a Python program that will run on multiple Operating Systems including Windows, Linux, and MacOS.
-
-See [INSTALL.md](INSTALL.md) for full installation instructions. You will need a modern GPU with CUDA support for best performance. AMD GPUs are partially supported.
-
-# Overview
-The project has multiple entry points. You will have to:
- - Gather photos and/or videos
- - **Extract** faces from your raw photos
- - **Train** a model on the faces extracted from the photos/videos
- - **Convert** your sources with the model
-
-Check out [USAGE.md](USAGE.md) for more detailed instructions.
+Note: Powers and GAN are not included.
 
 ## Extract
-From your setup folder, run `python faceswap.py extract`. This will take photos from `src` folder and extract faces into `extract` folder.
+Extract accuracy is now equivalent to DeepFaceLab after the addition of second pass but also benefits from 5-10x extract speed increase - TF2 and multithreading. Detection (S3FD) and alignment (FAN).
 
-## Train
-From your setup folder, run `python faceswap.py train`. This will take photos from two folders containing pictures of both faces and train a model that will be saved inside the `models` folder.
+Bisenet-fp generic masker works well for almost all scenes. Xseg was added to accommodate custom masking (place Xseg model in faceswap root).
 
-## Convert
-From your setup folder, run `python faceswap.py convert`. This will take photos from `original` folder and apply new faces into `modified` folder.
+Faceswap allows extraction direct from video without splitting into frames. Please reencode with Adobe Media Encoder if timestamps are not standard (output from Topaz Labs Video Enhance AI for example). Face data are stored to versatile alignments.json.
 
-## GUI
-Alternatively, you can run the GUI by running `python faceswap.py gui`
+Manual and sort tool allow for easy cleanup of extracted faces and alignments.
 
-# General notes:
-- All of the scripts mentioned have `-h`/`--help` options with arguments that they will accept. You're smart, you can figure out how this works, right?!
+## Training
 
-NB: there is a conversion tool for video. This can be accessed by running `python tools.py effmpeg -h`. Alternatively, you can use [ffmpeg](https://www.ffmpeg.org) to convert video into photos, process images, and convert images back to the video.
+Phaze-A allows for heavily optimized model architecture - high quality, high resolution with low memory requirements. SAEHD can be replicated exactly in Phaze-A, including 'd' and 't' options. 'u' is superceded by other normalization techniques. See example config files for optimized architectures.
 
+Features (everything is fully customizable):
+- input and output size
+- encoder (Conv or EfficientNetV2)
+- bottleneck size and norm
+- fully connected layers (inter)
+  - dimensions and upscales
+  - individual, shared, LIAE style
+  - optimized G-block
+- decoder
+  - split or shared
+  - normalization
+  - residual blocks
 
-**Some tips:**
+The best performing models are IAE style but with G-block instead of shared fully connected layer. The result is LIAE but with DF src-likeliness.
 
-Reusing existing models will train much faster than starting from nothing.
-If there is not enough training data, start with someone who looks similar, then switch the data.
+## Training Workflow
 
-# Help I need support!
-## Discord Server
-Your best bet is to join the [FaceSwap Discord server](https://discord.gg/FC54sYg) where there are plenty of users willing to help. Please note that, like this repo, this is a SFW Server!
+(Optional) Pretraining
+- Pretrain on dataset like FFHQ
+- Load weights onto new model
+  - To reduce identity bleed, only load encoder weights (optionally one of inter or decoder weights as well)
+  - Optionally freeze loaded weights for 5-10k iters in the beginning to allow other layers to catch up
 
-## FaceSwap Forum
-Alternatively, you can post questions in the [FaceSwap Forum](https://faceswap.dev/forum). Please do not post general support questions in this repo as they are liable to be deleted without response.
+For optimized 256px model:
+1. RW, random flip until face reasonably formed (100k iters)
+2. Increase EMP (default eye 3, mouth 2), mouth to 10 if no teeth separation (optional during RW stage)
+3. No RW, no random flip until face is crisp (30k iters)
 
-# How to contribute
-
-## For people interested in the generative models
- - Go to the 'faceswap-model' to discuss/suggest/commit alternatives to the current algorithm.
-
-## For devs
- - Read this README entirely
- - Fork the repo
- - Play with it
- - Check issues with the 'dev' tag
- - For devs more interested in computer vision and openCV, look at issues with the 'opencv' tag. Also feel free to add your own alternatives/improvements
-
-## For non-dev advanced users
- - Read this README entirely
- - Clone the repo
- - Play with it
- - Check issues with the 'advuser' tag
- - Also go to the '[faceswap Forum](https://faceswap.dev/forum)' and help others.
-
-## For end-users
- - Get the code here and play with it if you can
- - You can also go to the [faceswap Forum](https://faceswap.dev/forum) and help or get help from others.
- - Be patient. This is a relatively new technology for developers as well. Much effort is already being put into making this program easy to use for the average user. It just takes time!
- - **Notice** Any issue related to running the code has to be opened in the [faceswap Forum](https://faceswap.dev/forum)!
+6GB card (RTX A3000) trains optimized 256px model at BS 8 in 1 day.
