@@ -13,6 +13,7 @@ Feature | Faceswap  | Faceswap++ | DeepFaceLab |
 | Custom models | ✅ | ✅ | ❌
 | Custom loss | ✅ | ✅ | ❌
 | Easy extract cleanup | ✅ | ✅ | ❌
+| Windows, Linux, Mac | ✅ | ✅ | ❌
 | Xseg | ❌ | ✅ | ✅
 | MKL, etc | ❌ | ✅ | ✅
 | LRD | ❌ | ✅ | ✅
@@ -44,7 +45,7 @@ Pressing 'p' will do 'e' but for a inputted number of frames. Press any key to i
 
 ## Training
 
-Phaze-A allows for highly optimized model architecture - high quality and resolution with low memory requirements. SAEHD can be replicated exactly in Phaze-A, including 'd' and 't' options. 'u' is superceded by other normalization techniques. See example config files for optimized architectures.
+Phaze-A allows for highly optimized model architecture - high quality and resolution with low memory requirements. **SAEHD can be replicated exactly in Phaze-A**, including 'd' and 't' options. 'u' is superseded by other normalization techniques. See example config files for optimized architectures that outperform SAEHD.
 
 Features (everything is fully customizable):
 - input and output size
@@ -75,3 +76,11 @@ For optimized 256px model:
 3. No RW, no random flip until face is crisp (30k iters)
 
 6GB card (RTX A3000) trains optimized 256px model at BS 8 in 1 day.
+
+## Additional Features
+
+Gradient Accumulation - use this option to multiply effective batch size by N without increasing memory requirement. Useful for training large models that would not normally fit.
+
+LR Scheduling - lr warmup and cosine annealing
+
+Mix mask types - useful for long videos in which bisenet-fp works for the majority frames except a portion, where custom xseg can be used
