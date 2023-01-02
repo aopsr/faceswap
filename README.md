@@ -11,14 +11,14 @@ Feature | Faceswap  | Faceswap++ | DeepFaceLab |
 | - | - | - | - |
 | TF2 + AMP | ✅ | ✅ | ❌
 | Custom models | ✅ | ✅ | ❌
-| Custom EMP | ✅ | ✅ | ❌
+| Custom loss | ✅ | ✅ | ❌
 | Easy extract cleanup | ✅ | ✅ | ❌
 | Xseg | ❌ | ✅ | ✅
 | MKL, etc | ❌ | ✅ | ✅
 | LRD | ❌ | ✅ | ✅
 | Pretraining | ❌ | ✅ | ✅
-| LR Warmup | ❌ | ✅ | ❌
-| Face tracking | ❌ | ✅ | ❌
+| LR Scheduling | ❌ | ✅ | ❌
+| Face tracking extract | ❌ | ✅ | ❌
 | Mix mask types | ❌ | ✅ | ❌
 | Gradient Accumulation | ❌ | ✅ | ❌
 
@@ -34,9 +34,9 @@ Faceswap allows extraction direct from video without splitting into frames. Plea
 Manual and sort tool allow for easy cleanup of extracted faces and alignments.
 
 To use face tracking in manual tool, press 'e' to automatically
-1. copy bounding box from previous frame
-2. align face in current frame
-3. shift bounding box to be centered on face in current frame
+1. copy bounding box to next frame
+2. align face in next frame
+3. shift bounding box to be centered on face
 
 Pressing 'e' will work until 1. the next frame already has a face or 2. the current alignment is bad.
 
@@ -44,7 +44,7 @@ Pressing 'p' will do 'e' but for a inputted number of frames. Press any key to i
 
 ## Training
 
-Phaze-A allows for heavily optimized model architecture - high quality, high resolution with low memory requirements. SAEHD can be replicated exactly in Phaze-A, including 'd' and 't' options. 'u' is superceded by other normalization techniques. See example config files for optimized architectures.
+Phaze-A allows for highly optimized model architecture - high quality and resolution with low memory requirements. SAEHD can be replicated exactly in Phaze-A, including 'd' and 't' options. 'u' is superceded by other normalization techniques. See example config files for optimized architectures.
 
 Features (everything is fully customizable):
 - input and output size
