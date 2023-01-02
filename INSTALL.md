@@ -1,6 +1,6 @@
 # Installing faceswap
 
-Follow the instructions below. Then, replace the installed files with those from this repo, including .git if you want to get updates.
+# IMPORTANT: Follow the instructions below. Then, replace the installed files with those from this repo, including .git if you want to get updates.
 
 - [Installing faceswap](#installing-faceswap)
 - [Prerequisites](#prerequisites)

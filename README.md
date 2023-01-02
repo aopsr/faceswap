@@ -22,8 +22,9 @@ Feature | Faceswap  | Faceswap++ | DeepFaceLab |
 | Face tracking extract | ❌ | ✅ | ❌
 | Mix mask types | ❌ | ✅ | ❌
 | Gradient Accumulation | ❌ | ✅ | ❌
+| Further optimizations | ❌ | ✅ | ❌
 
-Note: Powers and GAN are not included.
+Note: Powers and GAN are not necessary and therefore not included.
 
 ## Extract
 Extract accuracy is now equivalent to DeepFaceLab after the addition of second pass but also benefits from 5-10x extract speed increase - TF2 and multithreading. Detection (S3FD) and alignment (FAN).
