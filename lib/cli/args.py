@@ -444,7 +444,7 @@ class ExtractArgs(ExtractConvertArgs):
             action=Radio,
             type=str.lower,
             dest="normalization",
-            default="none",
+            default="clahe",
             choices=["none", "clahe", "hist", "mean"],
             group=_("Plugins"),
             help=_("R|Performing normalization can help the aligner better align faces with "
@@ -475,7 +475,7 @@ class ExtractArgs(ExtractConvertArgs):
             opts=("-a", "--re-align"),
             action="store_true",
             dest="re_align",
-            default=False,
+            default=True,
             group=_("Plugins"),
             help=_("Re-feed the initially found aligned face through the aligner. Can help "
                    "produce better alignments for faces that are rotated beyond 45 degrees in "
