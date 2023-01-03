@@ -13,7 +13,7 @@ _ = _LANG.gettext
 
 _HELPTEXT = _("This command lets you sort images using various methods.")
 _SORT_METHODS = (
-    "none", "blur", "blur-fft", "distance", "face", "face-cnn", "face-cnn-dissim",
+    "none", "blur", "blur-fft", "distance", "face-identity", "face-cnn", "face-cnn-dissim",
     "yaw", "pitch", "roll", "hist", "hist-dissim", "color-black", "color-gray", "color-luma",
     "color-green", "color-orange", "size", "face-yaw", "black-pixels")
 
@@ -33,7 +33,7 @@ _METHOD_TEXT = {
     "distance": _("faces by the estimated distance of the alignments from an 'average' face. This "
                   "can be useful for eliminating misaligned faces. Sorts from most like an "
                   "average face to least like an average face."),
-    "face": _("faces using VGG Face2 by face similarity. This uses a pairwise clustering "
+    "face-identity": _("faces using VGG Face2 by face similarity. This uses a pairwise clustering "
               "algorithm to check the distances between 512 features on every face in your set "
               "and order them appropriately."),
     "face-cnn": _("faces by their landmarks."),
@@ -60,7 +60,7 @@ _METHOD_TEXT = {
     "black-pixels": _(" option is deprecated. Use 'color-black'")}
 
 _BIN_TYPES = [
-    (("face", "face-cnn", "face-cnn-dissim", "hist", "hist-dissim"), _GPTHRESHOLD),
+    (("face-identity", "face-cnn", "face-cnn-dissim", "hist", "hist-dissim"), _GPTHRESHOLD),
     (("color-black", "color-gray", "color-luma", "color-green", "color-orange"), _GPCOLOR),
     (("yaw", "pitch", "roll"), _GPDEGREES),
     (("blur", "blur-fft", "distance", "size"), _GPLINEAR)]
@@ -172,15 +172,15 @@ class SortArgs(FaceSwapArgs):
                    "\nBe careful setting a value that's too extrene in a directory "
                    "with many images, as this could result in a lot of folders being created. "
                    "Defaults: face-cnn 7.2, hist 0.3, face 0.25")))
-        argument_list.append(dict(
-            opts=('-fp', '--final-process'),
-            action=Radio,
-            type=str,
-            choices=("folders", "rename"),
-            dest='final_process',
-            group=_("output"),
-            help=_("Deprecated and no longer used. The final processing will be dictated by the "
-                   "sort/group by methods and whether 'keep_original' is selected.")))
+        # argument_list.append(dict(
+        #     opts=('-fp', '--final-process'),
+        #     action=Radio,
+        #     type=str,
+        #     choices=("folders", "rename"),
+        #     dest='final_process',
+        #     group=_("output"),
+        #     help=_("Deprecated and no longer used. The final processing will be dictated by the "
+        #            "sort/group by methods and whether 'keep_original' is selected.")))
         argument_list.append(dict(
             opts=('-b', '--bins'),
             action=Slider,

@@ -46,11 +46,11 @@ class Sort():  # pylint:disable=too-few-public-methods
 
     def _handle_deprecations(self):
         """ Warn that 'final_process' is deprecated and remove from arguments """
-        if self._args.final_process:
-            deprecation_warning("`-fp`, `--final-process`", "This option will be ignored")
-            logger.warning("Final processing is dictated by your choice of 'sort-by' and "
-                           "'group-by' options and whether 'keep' has been selected.")
-            del self._args.final_process
+        # if self._args.final_process:
+        #     deprecation_warning("`-fp`, `--final-process`", "This option will be ignored")
+        #     logger.warning("Final processing is dictated by your choice of 'sort-by' and "
+        #                    "'group-by' options and whether 'keep' has been selected.")
+        #     del self._args.final_process
         if "face-yaw" in (self._args.sort_method, self._args.group_method):
             deprecation_warning("`face-yaw` sort option", "Please use option 'yaw' going forward.")
             sort_ = self._args.sort_method
@@ -134,7 +134,7 @@ class _Sort():  # pylint:disable=too-few-public-methods
                                pitch=SortPitch,
                                roll=SortRoll,
                                size=SortSize,
-                               face=SortFace,
+                               face_identity=SortFace,
                                face_cnn=SortFaceCNN,
                                face_cnn_dissim=SortFaceCNN,
                                hist=SortHistogram,
