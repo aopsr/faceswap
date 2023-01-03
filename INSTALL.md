@@ -1,5 +1,3 @@
-# Installing faceswap
-
 # IMPORTANT: Follow the instructions below. Then, replace the installed files with those from this repo, including .git if you want to get updates.
 
 # Easy install
@@ -25,15 +23,6 @@ Alternatively, there is a docker image that is based on Debian.
 
 
 # Manual Install
-
-## Installer
-Windows and Linux now both have an installer which installs everything for you and creates a desktop shortcut to launch straight into the GUI. You can download the installer from https://github.com/deepfakes/faceswap/releases.
-
-If you have issues with the installer then read on for the more manual way to install faceswap on Windows.
-
-## Manual Install
-
-Setting up faceswap can seem a little intimidating to new users, but it isn't that complicated, although a little time consuming. It is recommended to use Linux where possible as Windows will hog about 20% of your GPU Memory, making faceswap run a little slower, however using Windows is perfectly fine and 100% supported.
 
 ## Prerequisites
 
@@ -66,7 +55,7 @@ To enter the virtual environment:
 
 ### faceswap
 - If you are not already in your virtual environment follow [these steps](#entering-your-virtual-environment)
-- Get the faceswap repo by typing: `git clone --depth 1 https://github.com/deepfakes/faceswap.git`
+- Get the faceswap repo by typing: `git clone --depth 1 https://github.com/aopsr/faceswap.git`
 - Enter the faceswap folder: `cd faceswap`
 
 #### Easy install
@@ -141,7 +130,7 @@ $ conda activate faceswap
 ### faceswap
 - Download the faceswap repo and enter the faceswap folder:
 ```sh
-$ git clone --depth 1 https://github.com/deepfakes/faceswap.git
+$ git clone --depth 1 https://github.com/aopsr/faceswap.git
 $ cd faceswap
 ```
 
@@ -181,7 +170,7 @@ Alternatively you can install Python (>= 3.7-3.9 64-bit) for your distribution (
 ## Getting the faceswap code
 It is recommended to clone the repo with git instead of downloading the code from http://github.com/deepfakes/faceswap and extracting it as this will make it far easier to get the latest code (which can be done from the GUI). To clone a repo you can either use the Git GUI for your distribution or open up a command prompt, enter the folder where you want to store faceswap and enter:
 ```bash
-git clone https://github.com/deepfakes/faceswap.git
+git clone https://github.com/aopsr/faceswap.git
 ```
 
 
