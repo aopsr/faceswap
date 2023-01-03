@@ -42,11 +42,11 @@ class Mask():  # pylint:disable=too-few-public-methods
         self._update_type = arguments.processing
         self._input_is_faces = arguments.input_type == "faces"
         self._mask_type = arguments.masker
-        self._output = dict(opts=dict(blur_kernel=arguments.blur_kernel,
-                                      threshold=arguments.threshold),
-                            type=arguments.output_type,
-                            full_frame=arguments.full_frame,
-                            suffix=self._get_output_suffix(arguments))
+        # self._output = dict(opts=dict(blur_kernel=arguments.blur_kernel,
+        #                               threshold=arguments.threshold),
+        #                     type=arguments.output_type,
+        #                     full_frame=arguments.full_frame,
+        #                     suffix=self._get_output_suffix(arguments))
         self._counts = dict(face=0, skip=0, update=0)
         self._frame_ranges: Optional[List[List[int, int]]] = arguments.frame_ranges
         if self._frame_ranges is not None:

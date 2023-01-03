@@ -90,7 +90,7 @@ class MaskArgs(FaceSwapArgs):
             opts=("-p", "--processing"),
             action=Radio,
             type=str.lower,
-            choices=("all", "missing", "output"),
+            choices=("all", "missing"),
             default="missing",
             group=_("process"),
             help=_("R|Whether to update all masks in the alignments files, only those faces "
@@ -108,55 +108,55 @@ class MaskArgs(FaceSwapArgs):
             group=_("Frame Processing"),
             help=_("Frame ranges to apply transfer to e.g. For frames 10 to 50 and 90 to 100 use "
                    "--frame-ranges 10-50 90-100.")))
-        argument_list.append(dict(
-            opts=("-o", "--output-folder"),
-            action=DirFullPaths,
-            dest="output",
-            type=str,
-            group=_("output"),
-            help=_("Optional output location. If provided, a preview of the masks created will "
-                   "be output in the given folder.")))
-        argument_list.append(dict(
-            opts=("-b", "--blur_kernel"),
-            action=Slider,
-            type=int,
-            group=_("output"),
-            min_max=(0, 9),
-            default=3,
-            rounding=1,
-            help=_("Apply gaussian blur to the mask output. Has the effect of smoothing the "
-                   "edges of the mask giving less of a hard edge. the size is in pixels. This "
-                   "value should be odd, if an even number is passed in then it will be rounded "
-                   "to the next odd number. NB: Only effects the output preview. Set to 0 for "
-                   "off")))
-        argument_list.append(dict(
-            opts=("-t", "--threshold"),
-            action=Slider,
-            type=int,
-            group=_("output"),
-            min_max=(0, 50),
-            default=4,
-            rounding=1,
-            help=_("Helps reduce 'blotchiness' on some masks by making light shades white "
-                   "and dark shades black. Higher values will impact more of the mask. NB: "
-                   "Only effects the output preview. Set to 0 for off")))
-        argument_list.append(dict(
-            opts=("-ot", "--output-type"),
-            action=Radio,
-            type=str.lower,
-            choices=("combined", "masked", "mask"),
-            default="combined",
-            group=_("output"),
-            help=_("R|How to format the output when processing is set to 'output'."
-                   "\nL|combined: The image contains the face/frame, face mask and masked face."
-                   "\nL|masked: Output the face/frame as rgba image with the face masked."
-                   "\nL|mask: Only output the mask as a single channel image.")))
-        argument_list.append(dict(
-            opts=("-f", "--full-frame"),
-            action="store_true",
-            default=False,
-            group=_("output"),
-            help=_("R|Whether to output the whole frame or only the face box when using "
-                   "output processing. Only has an effect when using frames as input.")))
+        # argument_list.append(dict(
+        #     opts=("-o", "--output-folder"),
+        #     action=DirFullPaths,
+        #     dest="output",
+        #     type=str,
+        #     group=_("output"),
+        #     help=_("Optional output location. If provided, a preview of the masks created will "
+        #            "be output in the given folder.")))
+        # argument_list.append(dict(
+        #     opts=("-b", "--blur_kernel"),
+        #     action=Slider,
+        #     type=int,
+        #     group=_("output"),
+        #     min_max=(0, 9),
+        #     default=3,
+        #     rounding=1,
+        #     help=_("Apply gaussian blur to the mask output. Has the effect of smoothing the "
+        #            "edges of the mask giving less of a hard edge. the size is in pixels. This "
+        #            "value should be odd, if an even number is passed in then it will be rounded "
+        #            "to the next odd number. NB: Only effects the output preview. Set to 0 for "
+        #            "off")))
+        # argument_list.append(dict(
+        #     opts=("-t", "--threshold"),
+        #     action=Slider,
+        #     type=int,
+        #     group=_("output"),
+        #     min_max=(0, 50),
+        #     default=4,
+        #     rounding=1,
+        #     help=_("Helps reduce 'blotchiness' on some masks by making light shades white "
+        #            "and dark shades black. Higher values will impact more of the mask. NB: "
+        #            "Only effects the output preview. Set to 0 for off")))
+        # argument_list.append(dict(
+        #     opts=("-ot", "--output-type"),
+        #     action=Radio,
+        #     type=str.lower,
+        #     choices=("combined", "masked", "mask"),
+        #     default="combined",
+        #     group=_("output"),
+        #     help=_("R|How to format the output when processing is set to 'output'."
+        #            "\nL|combined: The image contains the face/frame, face mask and masked face."
+        #            "\nL|masked: Output the face/frame as rgba image with the face masked."
+        #            "\nL|mask: Only output the mask as a single channel image.")))
+        # argument_list.append(dict(
+        #     opts=("-f", "--full-frame"),
+        #     action="store_true",
+        #     default=False,
+        #     group=_("output"),
+        #     help=_("R|Whether to output the whole frame or only the face box when using "
+        #            "output processing. Only has an effect when using frames as input.")))
 
         return argument_list
