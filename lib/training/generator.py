@@ -443,8 +443,8 @@ class TrainingDataGenerator(DataGenerator):  # pylint:disable=too-few-public-met
                     "color", color_transfer)()
             else:
                 self._color_transfer = None
-            self._warp_to_landmarks = (not self._no_warp
-                                    and model.command_line_arguments.warp_to_landmarks)
+            self._warp_to_landmarks = False #(not self._no_warp
+            #                         and model.command_line_arguments.warp_to_landmarks)
 
         self._reference_faces = None
         self._reference_masks = None

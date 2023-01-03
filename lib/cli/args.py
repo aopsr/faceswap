@@ -195,22 +195,22 @@ class FaceSwapArgs():
                        "correspond to any GPU(s) that you do not wish to be made available to "
                        "Faceswap. Selecting all GPUs here will force Faceswap into CPU mode."
                        "\nL|{}").format(" \nL|".join(_GPUS))))
-        global_args.append(dict(
-            opts=("-C", "--configfile"),
-            action=FileFullPaths,
-            filetypes="ini",
-            type=str,
-            group=_("Global Options"),
-            help=_("Optionally overide the saved config with the path to a custom config file.")))
-        global_args.append(dict(
-            opts=("-L", "--loglevel"),
-            type=str.upper,
-            dest="loglevel",
-            default="INFO",
-            choices=("INFO", "VERBOSE", "DEBUG", "TRACE"),
-            group=_("Global Options"),
-            help=_("Log level. Stick with INFO or VERBOSE unless you need to file an error "
-                   "report. Be careful with TRACE as it will generate a lot of data")))
+        # global_args.append(dict(
+        #     opts=("-C", "--configfile"),
+        #     action=FileFullPaths,
+        #     filetypes="ini",
+        #     type=str,
+        #     group=_("Global Options"),
+        #     help=_("Optionally overide the saved config with the path to a custom config file.")))
+        # global_args.append(dict(
+        #     opts=("-L", "--loglevel"),
+        #     type=str.upper,
+        #     dest="loglevel",
+        #     default="INFO",
+        #     choices=("INFO", "VERBOSE", "DEBUG", "TRACE"),
+        #     group=_("Global Options"),
+        #     help=_("Log level. Stick with INFO or VERBOSE unless you need to file an error "
+        #            "report. Be careful with TRACE as it will generate a lot of data")))
         global_args.append(dict(
             opts=("-LF", "--logfile"),
             action=SaveFileFullPaths,
@@ -335,8 +335,9 @@ class ExtractConvertArgs(FaceSwapArgs):
             type=str,
             dest="alignments_path",
             group=_("Data"),
-            help=_("Optional path to an alignments file. Leave blank if the alignments file is "
-                   "at the default location.")))
+            help=_("OPTIONAL path to an alignments file. Leave blank for default location.\n"
+                    "For video, the alignments will be in the same directory as the video.\n"
+                    "For folder of images, the alignments file will be in the images folder.")))
         return argument_list
 
 
@@ -387,33 +388,33 @@ class ExtractArgs(ExtractConvertArgs):
             help=_("R|If selected then the input_dir should be a parent folder containing "
                    "multiple videos and/or folders of images you wish to extract from. The faces "
                    "will be output to separate sub-folders in the output_dir.")))
-        argument_list.append(dict(
-            opts=("-D", "--detector"),
-            action=Radio,
-            type=str.lower,
-            default=default_detector,
-            choices=PluginLoader.get_available_extractors("detect"),
-            group=_("Plugins"),
-            help=_("R|Detector to use. Some of these have configurable settings in "
-                   "'/config/extract.ini' or 'Settings > Configure Extract 'Plugins':"
-                   "\nL|cv2-dnn: A CPU only extractor which is the least reliable and least "
-                   "resource intensive. Use this if not using a GPU and time is important."
-                   "\nL|mtcnn: Good detector. Fast on CPU, faster on GPU. Uses fewer resources "
-                   "than other GPU detectors but can often return more false positives."
-                   "\nL|s3fd: Best detector. Slow on CPU, faster on GPU. Can detect more faces "
-                   "and fewer false positives than other GPU detectors, but is a lot more "
-                   "resource intensive.")))
-        argument_list.append(dict(
-            opts=("-A", "--aligner"),
-            action=Radio,
-            type=str.lower,
-            default=default_aligner,
-            choices=PluginLoader.get_available_extractors("align"),
-            group=_("Plugins"),
-            help=_("R|Aligner to use."
-                   "\nL|cv2-dnn: A CPU only landmark detector. Faster, less resource intensive, "
-                   "but less accurate. Only use this if not using a GPU and time is important."
-                   "\nL|fan: Best aligner. Fast on GPU, slow on CPU.")))
+        # argument_list.append(dict(
+        #     opts=("-D", "--detector"),
+        #     action=Radio,
+        #     type=str.lower,
+        #     default=default_detector,
+        #     choices=PluginLoader.get_available_extractors("detect"),
+        #     group=_("Plugins"),
+        #     help=_("R|Detector to use. Some of these have configurable settings in "
+        #            "'/config/extract.ini' or 'Settings > Configure Extract 'Plugins':"
+        #            "\nL|cv2-dnn: A CPU only extractor which is the least reliable and least "
+        #            "resource intensive. Use this if not using a GPU and time is important."
+        #            "\nL|mtcnn: Good detector. Fast on CPU, faster on GPU. Uses fewer resources "
+        #            "than other GPU detectors but can often return more false positives."
+        #            "\nL|s3fd: Best detector. Slow on CPU, faster on GPU. Can detect more faces "
+        #            "and fewer false positives than other GPU detectors, but is a lot more "
+        #            "resource intensive.")))
+        # argument_list.append(dict(
+        #     opts=("-A", "--aligner"),
+        #     action=Radio,
+        #     type=str.lower,
+        #     default=default_aligner,
+        #     choices=PluginLoader.get_available_extractors("align"),
+        #     group=_("Plugins"),
+        #     help=_("R|Aligner to use."
+        #            "\nL|cv2-dnn: A CPU only landmark detector. Faster, less resource intensive, "
+        #            "but less accurate. Only use this if not using a GPU and time is important."
+        #            "\nL|fan: Best aligner. Fast on GPU, slow on CPU.")))
         argument_list.append(dict(
             opts=("-M", "--masker"),
             action=MultiOption,
@@ -422,23 +423,10 @@ class ExtractArgs(ExtractConvertArgs):
             choices=[mask for mask in PluginLoader.get_available_extractors("mask")
                      if mask not in ("components", "extended")],
             group=_("Plugins"),
-            help=_("R|Additional Masker(s) to use. The masks generated here will all take up GPU "
-                   "RAM. You can select none, one or multiple masks, but the extraction may take "
-                   "longer the more you select. NB: The Extended and Components (landmark based) "
-                   "masks are automatically generated on extraction."
-                   "\nL|bisenet-fp: Relatively lightweight NN based mask that provides more "
-                   "refined control over the area to be masked including full head masking "
-                   "(configurable in mask settings)."
-                   "\nL|xseg: Xseg masker"
-                   "\nThe auto generated masks are as follows:"
-                   "\nL|components: Mask designed to provide facial segmentation based on the "
-                   "positioning of landmark locations. A convex hull is constructed around the "
-                   "exterior of the landmarks to create a mask."
-                   "\nL|extended: Mask designed to provide facial segmentation based on the "
-                   "positioning of landmark locations. A convex hull is constructed around the "
-                   "exterior of the landmarks and the mask is extended upwards onto the "
-                   "forehead."
-                   "\n(eg: `-M unet-dfl vgg-clear`, `--masker vgg-obstructed`)")))
+            help=_("R|Optionally mask faces. It is recommended to clean up alignments first, then mask in Tools -> Mask."
+                   "\nL|bisenet-fp: Generic masker that works well for almost all scenes"
+                   "\nL|xseg: DFL Xseg model. Place your xseg model weights in faceswap root"
+                   "\n(eg: `-M xseg`, `--masker bisenet-fp xseg`)")))
         argument_list.append(dict(
             opts=("-nm", "--normalization"),
             action=Radio,
@@ -480,16 +468,16 @@ class ExtractArgs(ExtractConvertArgs):
             help=_("Re-feed the initially found aligned face through the aligner. Can help "
                    "produce better alignments for faces that are rotated beyond 45 degrees in "
                    "the frame or are at extreme angles. Slows down extraction.")))
-        argument_list.append(dict(
-            opts=("-r", "--rotate-images"),
-            type=str,
-            dest="rotate_images",
-            default=None,
-            group=_("Plugins"),
-            help=_("If a face isn't found, rotate the images to try to find a face. Can find "
-                   "more faces at the cost of extraction speed. Pass in a single number to use "
-                   "increments of that size up to 360, or pass in a list of numbers to enumerate "
-                   "exactly what angles to check.")))
+        # argument_list.append(dict(
+        #     opts=("-r", "--rotate-images"),
+        #     type=str,
+        #     dest="rotate_images",
+        #     default=None,
+        #     group=_("Plugins"),
+        #     help=_("If a face isn't found, rotate the images to try to find a face. Can find "
+        #            "more faces at the cost of extraction speed. Pass in a single number to use "
+        #            "increments of that size up to 360, or pass in a list of numbers to enumerate "
+        #            "exactly what angles to check.")))
         argument_list.append(dict(
             opts=("-I", "--identity"),
             action="store_true",
@@ -508,41 +496,41 @@ class ExtractArgs(ExtractConvertArgs):
             group=_("Face Processing"),
             help=_("Filters out faces detected below this size. Length, in pixels across the "
                    "diagonal of the bounding box. Set to 0 for off")))
-        argument_list.append(dict(
-            opts=("-n", "--nfilter"),
-            action=DirOrFilesFullPaths,
-            filetypes="image",
-            dest="nfilter",
-            default=None,
-            nargs="+",
-            group=_("Face Processing"),
-            help=_("Optionally filter out people who you do not wish to extract by passing in "
-                   "images of those people. Should be a small variety of images at different "
-                   "angles and in different conditions. A folder containing the required images "
-                   "or multiple image files, space separated, can be selected.")))
-        argument_list.append(dict(
-            opts=("-f", "--filter"),
-            action=DirOrFilesFullPaths,
-            filetypes="image",
-            dest="filter",
-            default=None,
-            nargs="+",
-            group=_("Face Processing"),
-            help=_("Optionally select people you wish to extract by passing in images of that "
-                   "person. Should be a small variety of images at different angles and in "
-                   "different conditions A folder containing the required images or multiple "
-                   "image files, space separated, can be selected.")))
-        argument_list.append(dict(
-            opts=("-l", "--ref_threshold"),
-            action=Slider,
-            min_max=(0.01, 0.99),
-            rounding=2,
-            type=float,
-            dest="ref_threshold",
-            default=0.60,
-            group=_("Face Processing"),
-            help=_("For use with the optional nfilter/filter files. Threshold for positive face "
-                   "recognition. Higher values are stricter.")))
+        # argument_list.append(dict(
+        #     opts=("-n", "--nfilter"),
+        #     action=DirOrFilesFullPaths,
+        #     filetypes="image",
+        #     dest="nfilter",
+        #     default=None,
+        #     nargs="+",
+        #     group=_("Face Processing"),
+        #     help=_("Optionally filter out people who you do not wish to extract by passing in "
+        #            "images of those people. Should be a small variety of images at different "
+        #            "angles and in different conditions. A folder containing the required images "
+        #            "or multiple image files, space separated, can be selected.")))
+        # argument_list.append(dict(
+        #     opts=("-f", "--filter"),
+        #     action=DirOrFilesFullPaths,
+        #     filetypes="image",
+        #     dest="filter",
+        #     default=None,
+        #     nargs="+",
+        #     group=_("Face Processing"),
+        #     help=_("Optionally select people you wish to extract by passing in images of that "
+        #            "person. Should be a small variety of images at different angles and in "
+        #            "different conditions A folder containing the required images or multiple "
+        #            "image files, space separated, can be selected.")))
+        # argument_list.append(dict(
+        #     opts=("-l", "--ref_threshold"),
+        #     action=Slider,
+        #     min_max=(0.01, 0.99),
+        #     rounding=2,
+        #     type=float,
+        #     dest="ref_threshold",
+        #     default=0.60,
+        #     group=_("Face Processing"),
+        #     help=_("For use with the optional nfilter/filter files. Threshold for positive face "
+        #            "recognition. Higher values are stricter.")))
         argument_list.append(dict(
             opts=("-sz", "--size"),
             action=Slider,
@@ -566,21 +554,21 @@ class ExtractArgs(ExtractConvertArgs):
             help=_("Extract every 'nth' frame. This option will skip frames when extracting "
                    "faces. For example a value of 1 will extract faces from every frame, a value "
                    "of 10 will extract faces from every 10th frame.")))
-        argument_list.append(dict(
-            opts=("-si", "--save-interval"),
-            action=Slider,
-            min_max=(0, 1000),
-            rounding=10,
-            type=int,
-            dest="save_interval",
-            default=0,
-            group=_("output"),
-            help=_("Automatically save the alignments file after a set amount of frames. By "
-                   "default the alignments file is only saved at the end of the extraction "
-                   "process. NB: If extracting in 2 passes then the alignments file will only "
-                   "start to be saved out during the second pass. WARNING: Don't interrupt the "
-                   "script when writing the file because it might get corrupted. Set to 0 to "
-                   "turn off")))
+        # argument_list.append(dict(
+        #     opts=("-si", "--save-interval"),
+        #     action=Slider,
+        #     min_max=(0, 1000),
+        #     rounding=10,
+        #     type=int,
+        #     dest="save_interval",
+        #     default=0,
+        #     group=_("output"),
+        #     help=_("Automatically save the alignments file after a set amount of frames. By "
+        #            "default the alignments file is only saved at the end of the extraction "
+        #            "process. NB: If extracting in 2 passes then the alignments file will only "
+        #            "start to be saved out during the second pass. WARNING: Don't interrupt the "
+        #            "script when writing the file because it might get corrupted. Set to 0 to "
+        #            "turn off")))
         argument_list.append(dict(
             opts=("-dl", "--debug-landmarks"),
             action="store_true",
@@ -703,7 +691,7 @@ class ConvertArgs(ExtractConvertArgs):
             dest="ignore_eye_mouth",
             default=False,
             group=_("Plugins"),
-            help=_("Ignore eye and mouth regions when determining face color distribution.")))
+            help=_("Ignore eye and mouth regions when determining face color distribution for color transfer.")))
         argument_list.append(dict(
             opts=("-cu", "--cuda"),
             action="store_true",
@@ -756,7 +744,7 @@ class ConvertArgs(ExtractConvertArgs):
             opts=("-w", "--writer"),
             action=Radio,
             type=str,
-            default="opencv",
+            default="ffmpeg",
             choices=PluginLoader.get_available_convert_plugins("writer", False),
             group=_("Plugins"),
             help=_("R|The plugin to use to output the converted images. The writers are "
@@ -800,57 +788,57 @@ class ConvertArgs(ExtractConvertArgs):
             default=0.0,
             group=_("Frame Processing"),
             help=_("Max scale of converted face relative to model output size. Resizes frame to match dest face size. Set to 0 to keep frames unchanged.")))
-        argument_list.append(dict(
-            opts=("-a", "--input-aligned-dir"),
-            action=DirFullPaths,
-            dest="input_aligned_dir",
-            default=None,
-            group=_("Face Processing"),
-            help=_("If you have not cleansed your alignments file, then you can filter out faces "
-                   "by defining a folder here that contains the faces extracted from your input "
-                   "files/video. If this folder is defined, then only faces that exist within "
-                   "your alignments file and also exist within the specified folder will be "
-                   "converted. Leaving this blank will convert all faces that exist within the "
-                   "alignments file.")))
-        argument_list.append(dict(
-            opts=("-n", "--nfilter"),
-            action=FilesFullPaths,
-            filetypes="image",
-            dest="nfilter",
-            default=None,
-            nargs="+",
-            group=_("Face Processing"),
-            help=_("Optionally filter out people who you do not wish to process by passing in an "
-                   "image of that person. Should be a front portrait with a single person in the "
-                   "image. Multiple images can be added space separated. NB: Using face filter "
-                   "will significantly decrease extraction speed and its accuracy cannot be "
-                   "guaranteed.")))
-        argument_list.append(dict(
-            opts=("-f", "--filter"),
-            action=FilesFullPaths,
-            filetypes="image",
-            dest="filter",
-            default=None,
-            nargs="+",
-            group=_("Face Processing"),
-            help=_("Optionally select people you wish to process by passing in an image of that "
-                   "person. Should be a front portrait with a single person in the image. "
-                   "Multiple images can be added space separated. NB: Using face filter will "
-                   "significantly decrease extraction speed and its accuracy cannot be "
-                   "guaranteed.")))
-        argument_list.append(dict(
-            opts=("-l", "--ref_threshold"),
-            action=Slider,
-            min_max=(0.01, 0.99),
-            rounding=2,
-            type=float,
-            dest="ref_threshold",
-            default=0.4,
-            group=_("Face Processing"),
-            help=_("For use with the optional nfilter/filter files. Threshold for positive face "
-                   "recognition. Lower values are stricter. NB: Using face filter will "
-                   "significantly decrease extraction speed and its accuracy cannot be "
-                   "guaranteed.")))
+        # argument_list.append(dict(
+        #     opts=("-a", "--input-aligned-dir"),
+        #     action=DirFullPaths,
+        #     dest="input_aligned_dir",
+        #     default=None,
+        #     group=_("Face Processing"),
+        #     help=_("If you have not cleansed your alignments file, then you can filter out faces "
+        #            "by defining a folder here that contains the faces extracted from your input "
+        #            "files/video. If this folder is defined, then only faces that exist within "
+        #            "your alignments file and also exist within the specified folder will be "
+        #            "converted. Leaving this blank will convert all faces that exist within the "
+        #            "alignments file.")))
+        # argument_list.append(dict(
+        #     opts=("-n", "--nfilter"),
+        #     action=FilesFullPaths,
+        #     filetypes="image",
+        #     dest="nfilter",
+        #     default=None,
+        #     nargs="+",
+        #     group=_("Face Processing"),
+        #     help=_("Optionally filter out people who you do not wish to process by passing in an "
+        #            "image of that person. Should be a front portrait with a single person in the "
+        #            "image. Multiple images can be added space separated. NB: Using face filter "
+        #            "will significantly decrease extraction speed and its accuracy cannot be "
+        #            "guaranteed.")))
+        # argument_list.append(dict(
+        #     opts=("-f", "--filter"),
+        #     action=FilesFullPaths,
+        #     filetypes="image",
+        #     dest="filter",
+        #     default=None,
+        #     nargs="+",
+        #     group=_("Face Processing"),
+        #     help=_("Optionally select people you wish to process by passing in an image of that "
+        #            "person. Should be a front portrait with a single person in the image. "
+        #            "Multiple images can be added space separated. NB: Using face filter will "
+        #            "significantly decrease extraction speed and its accuracy cannot be "
+        #            "guaranteed.")))
+        # argument_list.append(dict(
+        #     opts=("-l", "--ref_threshold"),
+        #     action=Slider,
+        #     min_max=(0.01, 0.99),
+        #     rounding=2,
+        #     type=float,
+        #     dest="ref_threshold",
+        #     default=0.4,
+        #     group=_("Face Processing"),
+        #     help=_("For use with the optional nfilter/filter files. Threshold for positive face "
+        #            "recognition. Lower values are stricter. NB: Using face filter will "
+        #            "significantly decrease extraction speed and its accuracy cannot be "
+        #            "guaranteed.")))
         argument_list.append(dict(
             opts=("-j", "--jobs"),
             action=Slider,
@@ -873,17 +861,17 @@ class ConvertArgs(ExtractConvertArgs):
             group=_("settings"),
             help=_("[LEGACY] This only needs to be selected if a legacy model is being loaded or "
                    "if there are multiple models in the model folder")))
-        argument_list.append(dict(
-            opts=("-otf", "--on-the-fly"),
-            action="store_true",
-            dest="on_the_fly",
-            default=False,
-            group=_("settings"),
-            help=_("Enable On-The-Fly Conversion. NOT recommended. You should generate a clean "
-                   "alignments file for your destination video. However, if you wish you can "
-                   "generate the alignments on-the-fly by enabling this option. This will use "
-                   "an inferior extraction pipeline and will lead to substandard results. If an "
-                   "alignments file is found, this option will be ignored.")))
+        # argument_list.append(dict(
+        #     opts=("-otf", "--on-the-fly"),
+        #     action="store_true",
+        #     dest="on_the_fly",
+        #     default=False,
+        #     group=_("settings"),
+        #     help=_("Enable On-The-Fly Conversion. NOT recommended. You should generate a clean "
+        #            "alignments file for your destination video. However, if you wish you can "
+        #            "generate the alignments on-the-fly by enabling this option. This will use "
+        #            "an inferior extraction pipeline and will lead to substandard results. If an "
+        #            "alignments file is found, this option will be ignored.")))
         argument_list.append(dict(
             opts=("-k", "--keep-unchanged"),
             action="store_true",
@@ -927,9 +915,7 @@ class TrainArgs(FaceSwapArgs):
         str
             The information text for the Train command.
         """
-        return _("Train a model on extracted original (A) and swap (B) faces.\n"
-                 "Training models can take a long time. Anything from 24hrs to over a week\n"
-                 "Model plugins can be configured in the 'Settings' Menu")
+        return _("Train a model on extracted dst (A) and src (B) faces.")
 
     @staticmethod
     def get_argument_list() -> List[Dict[str, Any]]:
@@ -990,12 +976,12 @@ class TrainArgs(FaceSwapArgs):
             opts=("-t", "--trainer"),
             action=Radio,
             type=str.lower,
-            default=PluginLoader.get_default_model(),
+            default="phaze-a", #PluginLoader.get_default_model(),
             choices=PluginLoader.get_available_models(),
             group=_("model"),
             help=_("R|Select which trainer to use. Trainers can be configured from the Settings "
                    "menu or the config folder."
-                   "\nL|original: The original model created by /u/deepfakes."
+                   "\nL|original: The original 64px model created by /u/deepfakes."
                    "\nL|phaze-a: Fully customizable model")))
         argument_list.append(dict(
             opts=("-su", "--summary"),
@@ -1069,14 +1055,14 @@ class TrainArgs(FaceSwapArgs):
                    "You should stop training when you are happy with the previews. However, if "
                    "you want the model to stop automatically at a set number of iterations, you "
                    "can set that value here.")))
-        argument_list.append(dict(
-            opts=("-d", "--distributed"),
-            action="store_true",
-            default=False,
-            backend="nvidia",
-            group=_("training"),
-            help=_("[Deprecated - Use '-D, --distribution-strategy' instead] Use the Tensorflow "
-                   "Mirrored Distrubution Strategy to train on multiple GPUs.")))
+        # argument_list.append(dict(
+        #     opts=("-d", "--distributed"),
+        #     action="store_true",
+        #     default=False,
+        #     backend="nvidia",
+        #     group=_("training"),
+        #     help=_("[Deprecated - Use '-D, --distribution-strategy' instead] Use the Tensorflow "
+        #            "Mirrored Distrubution Strategy to train on multiple GPUs.")))
         argument_list.append(dict(
             opts=("-D", "--distribution-strategy"),
             dest="distribution_strategy",
@@ -1095,15 +1081,15 @@ class TrainArgs(FaceSwapArgs):
                    "\nL|mirrored: Supports synchronous distributed training across multiple local "
                    "GPUs. A copy of the model and all variables are loaded onto each GPU with "
                    "batches distributed to each GPU at each iteration.")))
-        argument_list.append(dict(
-            opts=("-ct", "--color-transfer"),
-            dest="color_transfer",
-            action=Radio,
-            type=str.lower,
-            choices=["none", "rct"], #PluginLoader.get_available_convert_plugins("color"),
-            default="none",
-            group=_("training"),
-            help=_("Color transfer samples to reduce color mismatch")))
+        # argument_list.append(dict(
+        #     opts=("-ct", "--color-transfer"),
+        #     dest="color_transfer",
+        #     action=Radio,
+        #     type=str.lower,
+        #     choices=["none", "rct"], #PluginLoader.get_available_convert_plugins("color"),
+        #     default="none",
+        #     group=_("training"),
+        #     help=_("Color transfer samples to reduce color mismatch")))
         argument_list.append(dict(
             opts=("-s", "--save-interval"),
             action=Slider,
@@ -1125,28 +1111,28 @@ class TrainArgs(FaceSwapArgs):
             group=_("Saving"),
             help=_("Sets the number of iterations before saving a backup snapshot of the model "
                    "in it's current state. Set to 0 for off.")))
-        argument_list.append(dict(
-            opts=("-tia", "--timelapse-input-A"),
-            action=DirFullPaths,
-            dest="timelapse_input_a",
-            default=None,
-            group=_("timelapse"),
-            help=_("Optional for creating a timelapse. Timelapse will save an image of your "
-                   "selected faces into the timelapse-output folder at every save iteration. "
-                   "This should be the input folder of 'A' faces that you would like to use for "
-                   "creating the timelapse. You must also supply a --timelapse-output and a "
-                   "--timelapse-input-B parameter.")))
-        argument_list.append(dict(
-            opts=("-tib", "--timelapse-input-B"),
-            action=DirFullPaths,
-            dest="timelapse_input_b",
-            default=None,
-            group=_("timelapse"),
-            help=_("Optional for creating a timelapse. Timelapse will save an image of your "
-                   "selected faces into the timelapse-output folder at every save iteration. "
-                   "This should be the input folder of 'B' faces that you would like to use for "
-                   "creating the timelapse. You must also supply a --timelapse-output and a "
-                   "--timelapse-input-A parameter.")))
+        # argument_list.append(dict(
+        #     opts=("-tia", "--timelapse-input-A"),
+        #     action=DirFullPaths,
+        #     dest="timelapse_input_a",
+        #     default=None,
+        #     group=_("timelapse"),
+        #     help=_("Optional for creating a timelapse. Timelapse will save an image of your "
+        #            "selected faces into the timelapse-output folder at every save iteration. "
+        #            "This should be the input folder of 'A' faces that you would like to use for "
+        #            "creating the timelapse. You must also supply a --timelapse-output and a "
+        #            "--timelapse-input-B parameter.")))
+        # argument_list.append(dict(
+        #     opts=("-tib", "--timelapse-input-B"),
+        #     action=DirFullPaths,
+        #     dest="timelapse_input_b",
+        #     default=None,
+        #     group=_("timelapse"),
+        #     help=_("Optional for creating a timelapse. Timelapse will save an image of your "
+        #            "selected faces into the timelapse-output folder at every save iteration. "
+        #            "This should be the input folder of 'B' faces that you would like to use for "
+        #            "creating the timelapse. You must also supply a --timelapse-output and a "
+        #            "--timelapse-input-A parameter.")))
         argument_list.append(dict(
             opts=("-to", "--timelapse-output"),
             action=DirFullPaths,
@@ -1154,9 +1140,9 @@ class TrainArgs(FaceSwapArgs):
             default=None,
             group=_("timelapse"),
             help=_("Optional for creating a timelapse. Timelapse will save an image of your "
-                   "selected faces into the timelapse-output folder at every save iteration. If "
-                   "the input folders are supplied but no output folder, it will default to your "
-                   "model folder /timelapse/")))
+                   "selected faces into the timelapse-output folder at every save iteration.")))# If "
+                #    "the input folders are supplied but no output folder, it will default to your "
+                #    "model folder /timelapse/")))
         argument_list.append(dict(
             opts=("-p", "--preview"),
             action="store_true",
@@ -1180,15 +1166,15 @@ class TrainArgs(FaceSwapArgs):
             group=_("training"),
             help=_("Disables TensorBoard logging. NB: Disabling logs means that you will not be "
                    "able to use the graph or analysis for this session in the GUI.")))
-        argument_list.append(dict(
-            opts=("-wl", "--warp-to-landmarks"),
-            action="store_true",
-            dest="warp_to_landmarks",
-            default=False,
-            group=_("augmentation"),
-            help=_("Warps training faces to closely matched Landmarks from the opposite face-set "
-                   "rather than randomly warping the face. This is the 'dfaker' way of doing "
-                   "warping.")))
+        # argument_list.append(dict(
+        #     opts=("-wl", "--warp-to-landmarks"),
+        #     action="store_true",
+        #     dest="warp_to_landmarks",
+        #     default=False,
+        #     group=_("augmentation"),
+        #     help=_("Warps training faces to closely matched Landmarks from the opposite face-set "
+        #            "rather than randomly warping the face. This is the 'dfaker' way of doing "
+        #            "warping.")))
         argument_list.append(dict(
             opts=("-nf", "--no-flip"),
             action="store_true",

@@ -204,9 +204,10 @@ class ScriptExecutor():  # pylint:disable=too-few-public-methods
         arguments: :class:`argparse.Namespace`
             The command line arguments to be passed to the executing script.
         """
-        set_system_verbosity(arguments.loglevel)
+        loglevel = arguments.loglevel if hasattr(arguments, "loglevel") else "INFO"
+        set_system_verbosity(loglevel)
         is_gui = hasattr(arguments, "redirect_gui") and arguments.redirect_gui
-        log_setup(arguments.loglevel, arguments.logfile, self._command, is_gui)
+        log_setup(loglevel, arguments.logfile, self._command, is_gui)
         success = False
 
         if self._command != "gui":

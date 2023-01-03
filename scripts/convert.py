@@ -161,14 +161,13 @@ class Convert():  # pylint:disable=too-few-public-methods
             raise FaceswapError("Output as video selected, but using frames as input. You must "
                                 "provide a reference video ('-ref', '--reference-video').")
 
-        if (self._args.on_the_fly and
-                self._args.mask_type not in ("none", "extended", "components")):
-            logger.warning("You have selected an incompatible mask type ('%s') for On-The-Fly "
-                           "conversion. Switching to 'extended'", self._args.mask_type)
-            self._args.mask_type = "extended"
+        # if (self._args.on_the_fly and
+        #         self._args.mask_type not in ("none", "extended", "components")):
+        #     logger.warning("You have selected an incompatible mask type ('%s') for On-The-Fly "
+        #                    "conversion. Switching to 'extended'", self._args.mask_type)
+        #     self._args.mask_type = "extended"
 
-        if (not self._args.on_the_fly and
-                self._args.mask_type not in ("none", "predicted") and
+        if (self._args.mask_type not in ("none", "predicted") and
                 not self._alignments.mask_is_valid(self._args.mask_type, self._args.secondary_mask_type)):
             msg = (f"You have selected the Mask Type `{self._args.mask_type}` but at least one "
                    "face does not have this mask stored in the Alignments File.\nYou should "
@@ -441,11 +440,11 @@ class DiskIO():
                          "recommended).")
             sys.exit(1)
         if self._alignments.have_alignments_file:
-            if self._args.on_the_fly:
-                logger.info("On-The-Fly conversion selected, but an alignments file was found. "
-                            "Using pre-existing alignments file: '%s'", self._alignments.file)
-            else:
-                logger.debug("Alignments file found: '%s'", self._alignments.file)
+            # if self._args.on_the_fly:
+            #     logger.info("On-The-Fly conversion selected, but an alignments file was found. "
+            #                 "Using pre-existing alignments file: '%s'", self._alignments.file)
+            # else:
+            logger.debug("Alignments file found: '%s'", self._alignments.file)
             return None
 
         logger.debug("Loading extractor")
@@ -1153,7 +1152,7 @@ class OptionalActions():  # pylint:disable=too-few-public-methods
             Dictionary of source frame names with a list of associated face indices to be skipped
         """
         retval: Dict[str, List[int]] = {}
-        input_aligned_dir = self._args.input_aligned_dir
+        input_aligned_dir = None #self._args.input_aligned_dir
 
         if input_aligned_dir is None:
             logger.verbose("Aligned directory not specified. All faces listed in "  # type:ignore

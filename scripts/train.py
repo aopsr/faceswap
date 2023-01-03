@@ -70,18 +70,19 @@ class Train():  # pylint:disable=too-few-public-methods
         self._save_now: bool = False
         self._preview = PreviewInterface(self._args.preview)
         self._pretrain = self._args.pretrain
-        self._color_transfer = self._args.color_transfer
+        self._color_transfer = "none" #self._args.color_transfer
 
         logger.debug("Initialized %s", self.__class__.__name__)
 
     def _handle_deprecations(self) -> None:
         """ Handle the update of deprecated arguments and output warnings. """
-        if self._args.distributed:
-            deprecation_warning("`-d`, `--distributed`",
-                                "Please use `-D`, `--distribution-strategy`")
-            logger.warning("Setting 'distribution-strategy' to 'mirrored'")
-            setattr(self._args, "distribution_strategy", "mirrored")
-            del self._args.distributed
+        # if self._args.distributed:
+        #     deprecation_warning("`-d`, `--distributed`",
+        #                         "Please use `-D`, `--distribution-strategy`")
+        #     logger.warning("Setting 'distribution-strategy' to 'mirrored'")
+        #     setattr(self._args, "distribution_strategy", "mirrored")
+        #     del self._args.distributed
+        return
 
     def _get_images(self) -> Dict[Literal["a", "b"], List[str]]:
         """ Check the image folders exist and contains valid extracted faces. Obtain image paths.
@@ -161,22 +162,23 @@ class Train():  # pylint:disable=too-few-public-methods
             The time-lapse keyword arguments for passing to the trainer
 
         """
-        if (not self._args.timelapse_input_a and
-                not self._args.timelapse_input_b and
+        if (#not self._args.timelapse_input_a and
+            #    not self._args.timelapse_input_b and
                 not self._args.timelapse_output):
             return {}
-        if (not self._args.timelapse_input_a or
-                not self._args.timelapse_input_b or
-                not self._args.timelapse_output):
-            raise FaceswapError("To enable the timelapse, you have to supply all the parameters "
-                                "(--timelapse-input-A, --timelapse-input-B and "
-                                "--timelapse-output).")
+        # if (not self._args.timelapse_input_a or
+        #         not self._args.timelapse_input_b or
+        #         not self._args.timelapse_output):
+        #     raise FaceswapError("To enable the timelapse, you have to supply all the parameters "
+        #                         "(--timelapse-input-A, --timelapse-input-B and "
+        #                         "--timelapse-output).")
+        
 
         timelapse_output = get_folder(self._args.timelapse_output)
 
         for side in ("a", "b"):
             side = cast(Literal["a", "b"], side)
-            folder = getattr(self._args, f"timelapse_input_{side}")
+            folder = getattr(self._args, f"input_{side}") #f"timelapse_input_{side}")
             if folder is not None and not os.path.isdir(folder):
                 raise FaceswapError(f"The Timelapse path '{folder}' does not exist")
 
@@ -314,12 +316,13 @@ class Train():  # pylint:disable=too-few-public-methods
         """
         logger.debug("Loading Trainer")
         base = PluginLoader.get_trainer(model.trainer)
+        configfile = self._args.configfile if hasattr(self._args, "configfile") else None
         trainer: "TrainerBase" = base(model,
                                       self._images,
                                       self._args.batch_size,
                                       self._pretrain,
                                       self._color_transfer,
-                                      self._args.configfile)
+                                      configfile)
         logger.debug("Loaded Trainer")
         return trainer
 

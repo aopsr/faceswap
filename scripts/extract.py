@@ -54,24 +54,24 @@ class Extract():  # pylint:disable=too-few-public-methods
         normalization = None if self._args.normalization == "none" else self._args.normalization
         maskers = ["components", "extended"]
         maskers += self._args.masker if self._args.masker else []
-        recognition = ("vgg_face2"
-                       if arguments.identity or arguments.filter or arguments.nfilter
-                       else None)
-        self._extractor = Extractor(self._args.detector,
-                                    self._args.aligner,
+        recognition = None #("vgg_face2"
+        #                if arguments.identity or arguments.filter or arguments.nfilter
+        #                else None)
+        self._extractor = Extractor("s3fd", #self._args.detector,
+                                    "fan", #self._args.aligner,
                                     maskers,
                                     recognition=recognition,
                                     configfile=configfile,
                                     multiprocess=not self._args.singleprocess,
                                     exclude_gpus=self._args.exclude_gpus,
-                                    rotate_images=self._args.rotate_images,
+                                    rotate_images=None,#self._args.rotate_images,
                                     min_size=self._args.min_size,
                                     normalize_method=normalization,
                                     re_feed=self._args.re_feed,
                                     re_align=self._args.re_align)
-        self._filter = Filter(self._args.ref_threshold,
-                              self._args.filter,
-                              self._args.nfilter,
+        self._filter = Filter(None, #self._args.ref_threshold,
+                              None, #self._args.filter,
+                              None, #self._args.nfilter,
                               self._extractor)
 
     def _get_input_locations(self) -> List[str]:
