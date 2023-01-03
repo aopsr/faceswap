@@ -1,6 +1,8 @@
 # Faceswap++
 
-Faceswap++ is an improved superset of Faceswap and DeepFaceLab.
+[<img src="https://discord.com/api/guilds/1059728184414834688/embed.png">](https://discord.gg/mDDbHc7Dus)
+
+<font size="3"> Faceswap++ is an improved superset of Faceswap and DeepFaceLab. </font>
 
 ## Installation
 See [INSTALL.md](INSTALL.md)
