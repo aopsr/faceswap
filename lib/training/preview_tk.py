@@ -171,7 +171,7 @@ class _Taskbar():
             self._track_widget(radio)
 
             logger.debug("Added %s radio button", radio)
-        self.interpolator_var.set(cv2.INTER_NEAREST)
+        self.interpolator_var.set(cv2.INTER_CUBIC)
         frame.pack(side=tk.RIGHT)
         self._track_widget(frame)
 
