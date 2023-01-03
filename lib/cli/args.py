@@ -1144,7 +1144,7 @@ class TrainArgs(FaceSwapArgs):
             opts=("-p", "--preview"),
             action="store_true",
             dest="preview",
-            default=True,
+            default=False,
             group=_("preview"),
             help=_("Show training preview output. in a separate window.")))
         argument_list.append(dict(
