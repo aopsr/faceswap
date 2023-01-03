@@ -1037,7 +1037,8 @@ class TrainArgs(FaceSwapArgs):
             default=1,
             group=_("training"),
             help=_("Gradient accumulation. Multiply the batch size by this number to get the effective batch size. "
-                   "This is useful for training with a small batch size on a GPU with limited memory.")))
+                   "This is useful for training with a small batch size on a GPU with limited memory."
+                   "Only use if your max batch size < 4. Set to 1 to disable.")))
         argument_list.append(dict(
             opts=("-it", "--iterations"),
             action=Slider,

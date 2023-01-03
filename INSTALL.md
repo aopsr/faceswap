@@ -168,7 +168,7 @@ Alternatively you can install Python (>= 3.7-3.9 64-bit) for your distribution (
 
 
 ## Getting the faceswap code
-It is recommended to clone the repo with git instead of downloading the code from http://github.com/deepfakes/faceswap and extracting it as this will make it far easier to get the latest code (which can be done from the GUI). To clone a repo you can either use the Git GUI for your distribution or open up a command prompt, enter the folder where you want to store faceswap and enter:
+It is recommended to clone the repo with git instead of downloading the code from http://github.com/aopsr/faceswap and extracting it as this will make it far easier to get the latest code (which can be done from the GUI). To clone a repo you can either use the Git GUI for your distribution or open up a command prompt, enter the folder where you want to store faceswap and enter:
 ```bash
 git clone https://github.com/aopsr/faceswap.git
 ```
