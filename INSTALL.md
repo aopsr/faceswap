@@ -2,54 +2,6 @@
 
 # IMPORTANT: Follow the instructions below. Then, replace the installed files with those from this repo, including .git if you want to get updates.
 
-- [Installing faceswap](#installing-faceswap)
-- [Prerequisites](#prerequisites)
-  - [Hardware Requirements](#hardware-requirements)
-  - [Supported operating systems](#supported-operating-systems)
-- [Important before you proceed](#important-before-you-proceed)
-- [Linux and Windows Install Guide](#linux-and-windows-install-guide)
-  - [Installer](#installer)
-  - [Manual Install](#manual-install)
-  - [Prerequisites](#prerequisites-1)
-    - [Anaconda](#anaconda)
-    - [Git](#git)
-  - [Setup](#setup)
-    - [Anaconda](#anaconda-1)
-      - [Set up a virtual environment](#set-up-a-virtual-environment)
-      - [Entering your virtual environment](#entering-your-virtual-environment)
-    - [faceswap](#faceswap)
-      - [Easy install](#easy-install)
-      - [Manual install](#manual-install-1)
-  - [Running faceswap](#running-faceswap)
-  - [Create a desktop shortcut](#create-a-desktop-shortcut)
-  - [Updating faceswap](#updating-faceswap)
-- [macOS (Apple Silicon) Install Guide](#macos-apple-silicon-install-guide)
-  - [Prerequisites](#prerequisites-2)
-    - [OS](#os)
-    - [XCode Tools](#xcode-tools)
-    - [XQuartz](#xquartz)
-    - [Conda](#conda)
-  - [Setup](#setup-1)
-    - [Create and Activate the Environment](#create-and-activate-the-environment)
-    - [faceswap](#faceswap-1)
-      - [Easy install](#easy-install-1)
-- [General Install Guide](#general-install-guide)
-  - [Installing dependencies](#installing-dependencies)
-    - [Git](#git-1)
-    - [Python](#python)
-    - [Virtual Environment](#virtual-environment)
-  - [Getting the faceswap code](#getting-the-faceswap-code)
-  - [Setup](#setup-2)
-    - [About some of the options](#about-some-of-the-options)
-- [Docker Install Guide](#docker-install-guide)
-  - [Docker General](#docker-general)
-    - [CUDA with Docker in 20 minutes.](#cuda-with-docker-in-20-minutes)
-  - [CUDA with Docker on Arch Linux](#cuda-with-docker-on-arch-linux)
-    - [Install docker](#install-docker)
-  - [A successful setup log, without docker.](#a-successful-setup-log-without-docker)
-  - [Run the project](#run-the-project)
-  - [Notes](#notes)
-
 # Easy install
 - ## Windows 10
 
@@ -61,6 +13,8 @@
   Download [faceswap_setup_x64.sh](https://github.com/deepfakes/faceswap/releases/download/v2.0.0/faceswap_setup_x64.sh) and run:
 
   `bash ./faceswap_setup_x64.sh`
+
+  Replace the installed files with this repo.
 
 - **macOS**
   Experimental support for GPU-accelerated, native Apple Silicon processing (e.g. Apple M1 chips). Installation instructions can be found [further down this page](#macos-apple-silicon-install-guide).
