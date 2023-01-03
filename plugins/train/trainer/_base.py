@@ -751,7 +751,7 @@ class _Samples():  # pylint:disable=too-few-public-methods
         logger.debug("Returning predictions: %s", {key: val.shape for key, val in preds.items()})
         return preds
 
-    def _compile_preview(self, predictions: Dict[str, np.ndarray]) -> np.ndarray: # FIX PREVIEW HERE FOR DFL STYLE
+    def _compile_preview(self, predictions: Dict[str, np.ndarray]) -> np.ndarray:
         """ Compile predictions and images into the final preview image.
 
         Parameters

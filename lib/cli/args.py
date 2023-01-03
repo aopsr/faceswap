@@ -465,9 +465,7 @@ class ExtractArgs(ExtractConvertArgs):
             dest="re_align",
             default=True,
             group=_("Plugins"),
-            help=_("Re-feed the initially found aligned face through the aligner. Can help "
-                   "produce better alignments for faces that are rotated beyond 45 degrees in "
-                   "the frame or are at extreme angles. Slows down extraction.")))
+            help=_("Second pass. Enable for greater accuracy with rotated faces.")))
         # argument_list.append(dict(
         #     opts=("-r", "--rotate-images"),
         #     type=str,
