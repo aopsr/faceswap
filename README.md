@@ -36,13 +36,13 @@ Manual and sort tool allow for easy cleanup of extracted faces and alignments.
 
 ### Extract Workflow
 
-1. Extract from video or folder of images, no masking.
-2. Sort faces in Tools -> Sort, delete bad faces
-3. Remove bad faces from alignments file in Tools -> Alignments -> Remove-Faces
-4. Check faces in Tools -> Manual and delete remaining bad faces
+1. Extract from video or folder of images, no masking
+2. Sort faces in Tools -> Sort. Sort by face (identity) and distance (misalignment) and delete bad faces
+3. Remove deleted faces from alignments file in Tools -> Alignments -> Remove-Faces
+4. Check remaining faces in Tools -> Manual and delete leftover bad faces
 5. Apply mask in Tools -> Mask
 6. Check masks in Tools -> Manual
-7. Delete initially extracted faces
+7. Delete folder of initially extracted faces
 8. Extract clean faces with mask in Tools -> Alignments -> Extract
 
 ## Training
