@@ -50,23 +50,18 @@
   - [Run the project](#run-the-project)
   - [Notes](#notes)
 
-## Hardware Requirements
-**TL;DR: you need at least one of the following:**
+# Easy install
+- ## Windows 10
 
-- **A powerful CPU**
-    - Laptop CPUs can often run the software, but will not be fast enough to train at reasonable speeds
-- **A powerful GPU**
-    - Currently, Nvidia GPUs are fully supported. and AMD graphics cards are partially supported through plaidML.
-    - If using an Nvidia GPU, then it needs to support at least CUDA Compute Capability 3.5. (Release 1.0 will work on Compute Capability 3.0)
-      To see which version your GPU supports, consult this list: https://developer.nvidia.com/cuda-gpus
-      Desktop cards later than the 7xx series are most likely supported.
-- **A lot of patience**
+  Use one-click installer here: [faceswap_setup_x64.exe](https://github.com/deepfakes/faceswap/releases/download/v2.0.0/faceswap_setup_x64.exe), then replace the installed files with this repo.
 
-## Supported operating systems
-- **Windows 10**
-  Windows 7 and 8 might work. Your mileage may vary. Windows has an installer which will set up everything you need. See: https://github.com/deepfakes/faceswap/releases
-- **Linux**
-  Most Ubuntu/Debian or CentOS based Linux distributions will work. There is a Linux install script that will install and set up everything you need. See: https://github.com/deepfakes/faceswap/releases
+- ## Linux
+  Most Ubuntu/Debian or CentOS based Linux distributions will work.
+
+  Download [faceswap_setup_x64.sh](https://github.com/deepfakes/faceswap/releases/download/v2.0.0/faceswap_setup_x64.sh) and run:
+
+  `bash ./faceswap_setup_x64.sh`
+
 - **macOS**
   Experimental support for GPU-accelerated, native Apple Silicon processing (e.g. Apple M1 chips). Installation instructions can be found [further down this page](#macos-apple-silicon-install-guide).
   Intel based macOS systems should work, but you will need to follow the [Manual Install](#manual-install) instructions.
@@ -74,12 +69,8 @@
 
 Alternatively, there is a docker image that is based on Debian.
 
-# Important before you proceed
-**In its current iteration, the project relies heavily on the use of the command line, although a gui is available. if you are unfamiliar with command line tools, you may have difficulty setting up the environment and should perhaps not attempt any of the steps described in this guide.** This guide assumes you have intermediate knowledge of the command line.
 
-The developers are also not responsible for any damage you might cause to your own computer.
-
-# Linux and Windows Install Guide
+# Manual Install
 
 ## Installer
 Windows and Linux now both have an installer which installs everything for you and creates a desktop shortcut to launch straight into the GUI. You can download the installer from https://github.com/deepfakes/faceswap/releases.
