@@ -119,6 +119,7 @@ class DisplayNotebook(ttk.Notebook):  # pylint: disable=too-many-ancestors
         logger.debug("Build train tabs")
         for tab in ("graph", "preview"):
             if tab == "graph":
+                continue
                 helptext = _("Graph showing Loss vs Iterations")
                 GraphDisplay(self, "graph", helptext, 5000)
             elif tab == "preview":

@@ -933,18 +933,14 @@ class TrainArgs(FaceSwapArgs):
             dest="input_a",
             required=True,
             group=_("faces"),
-            help=_("Input directory. A directory containing training images for face A. This is "
-                   "the original face, i.e. the face that you want to remove and replace with "
-                   "face B.")))
+            help=_("Folder of dst faces (A) - the face to be replaced by face B")))
         argument_list.append(dict(
             opts=("-B", "--input-B"),
             action=DirFullPaths,
             dest="input_b",
             required=True,
             group=_("faces"),
-            help=_("Input directory. A directory containing training images for face B. This is "
-                   "the swap face, i.e. the face that you want to place onto the head of person "
-                   "A.")))
+            help=_("Folder of src faces (B) - the face to be swapped onto face A")))
         argument_list.append(dict(
             opts=("-m", "--model-dir"),
             action=DirFullPaths,
@@ -1147,7 +1143,7 @@ class TrainArgs(FaceSwapArgs):
             opts=("-p", "--preview"),
             action="store_true",
             dest="preview",
-            default=False,
+            default=True,
             group=_("preview"),
             help=_("Show training preview output. in a separate window.")))
         argument_list.append(dict(

@@ -50,8 +50,8 @@ class _Taskbar():
                           scale=tk.StringVar(),
                           slider=tk.IntVar(),
                           interpolator=tk.IntVar())
-        self._interpolators = [("nearest_neighbour", cv2.INTER_NEAREST),
-                               ("bicubic", cv2.INTER_CUBIC)]
+        self._interpolators = [("bicubic", cv2.INTER_CUBIC),
+                               ("nearest_neighbour", cv2.INTER_NEAREST)]
         self._scale = self._add_scale_combo()
         self._slider = self._add_scale_slider()
         self._add_interpolator_radio()
@@ -698,7 +698,6 @@ class PreviewTk(PreviewBase):  # pylint:disable=too-few-public-methods
         self._taskbar.interpolator_var.trace("w", self._set_interpolation)
 
         self._process_triggers()
-
         if self._is_standalone:
             self.pack(fill=tk.BOTH, expand=True)
 
@@ -802,6 +801,8 @@ class PreviewTk(PreviewBase):  # pylint:disable=too-few-public-methods
         self._root.state("normal")
         self._root.geometry(f"{width}x{height}")
         self._root.protocol("WM_DELETE_WINDOW", lambda: None)  # Intercept close window
+        self._root.attributes('-topmost', True)
+        self._root.attributes('-topmost', False)
         self._initialized = True
         logger.debug("Initialized window: (width: %s, height: %s)", width, height)
 
