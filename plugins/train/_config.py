@@ -513,7 +513,7 @@ class Config(FaceswapConfig):
             section=section,
             title="mask_type",
             datatype=str,
-            default="extended",
+            default="bisenet-fp_face",
             choices=PluginLoader.get_available_extractors("mask",
                                                           add_none=True, extend_plugin=True),
             group="mask",
