@@ -1156,6 +1156,13 @@ class TrainArgs(FaceSwapArgs):
             help=_("Writes the training result to a file. The image will be stored in the root "
                    "of your FaceSwap folder.")))
         argument_list.append(dict(
+            opts=("-dflp", "--dfl-preview"),
+            action="store_true",
+            dest="dfl_preview",
+            default=False,
+            group=_("preview"),
+            help=_("DFL preview style")))
+        argument_list.append(dict(
             opts=("-nl", "--no-logs"),
             action="store_true",
             dest="no_logs",

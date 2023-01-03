@@ -81,6 +81,7 @@ class TrainerBase():
                  batch_size: int,
                  pretrain: bool,
                  color_transfer: str,
+                 dfl_preview: bool,
                  configfile: Optional[str]) -> None:
         logger.debug("Initializing %s: (model: '%s', batch_size: %s)",
                      self.__class__.__name__, model, batch_size)
@@ -94,14 +95,15 @@ class TrainerBase():
         self._pretrain = pretrain
         self._color_transfer = color_transfer
 
-        self._feeder = _Feeder(images, self._model, batch_size, pretrain, color_transfer, self._config)
+        self._feeder = _Feeder(images, self._model, batch_size, pretrain, color_transfer, dfl_preview, self._config)
 
         self._tensorboard = self._set_tensorboard()
-        self._samples = _Samples(self._model, self._model.coverage_ratio)
+        self._samples = _Samples(self._model, self._model.coverage_ratio, dfl_preview)
         self._timelapse = _Timelapse(self._model,
                                      self._model.coverage_ratio,
                                      int(self._config.get("preview_images", 14)),
                                      self._feeder,
+                                     dfl_preview,
                                      self._images)
         logger.debug("Initialized %s", self.__class__.__name__)
 
@@ -398,6 +400,7 @@ class _Feeder():
                  batch_size: int,
                  pretrain: bool,
                  color_transfer: str,
+                 dfl_preview: bool,
                  config: ConfigType) -> None:
         logger.debug("Initializing %s: num_images: %s, batch_size: %s, config: %s)",
                      self.__class__.__name__, {k: len(v) for k, v in images.items()}, batch_size,
@@ -407,6 +410,7 @@ class _Feeder():
         self._batch_size = batch_size
         self._pretrain = pretrain
         self._color_transfer = color_transfer
+        self._dfl_preview = dfl_preview
         self._config = config
         self._generators = {side: self._load_generator(side, False)
                        for side in get_args(Literal["a", "b"])}
@@ -469,8 +473,11 @@ class _Feeder():
         retval: Dict[Literal["a", "b"], Generator[BatchType, None, None]] = {}
         for side in get_args(Literal["a", "b"]):
             logger.debug("Setting preview feed: (side: '%s')", side)
-            preview_images = int(self._config.get("preview_images", 14))
-            preview_images = min(max(preview_images, 2), 16)
+            if self._dfl_preview:
+                preview_images = 4
+            else:
+                preview_images = int(self._config.get("preview_images", 14))
+                preview_images = min(max(preview_images, 2), 16)
             batchsize = min(len(self._images[side]), preview_images)
             retval[side] = self._load_generator(side,
                                                 True,
@@ -630,13 +637,14 @@ class _Samples():  # pylint:disable=too-few-public-methods
         dictionary should contain 2 keys ("a" and "b") with the values being the training images
         for generating samples corresponding to each side.
     """
-    def __init__(self, model: "ModelBase", coverage_ratio: float) -> None:
+    def __init__(self, model: "ModelBase", coverage_ratio: float, dfl_preview: bool) -> None:
         logger.debug("Initializing %s: model: '%s', coverage_ratio: %s)",
                      self.__class__.__name__, model, coverage_ratio)
         self._model = model
         self._display_mask = model.config["learn_mask"] or model.config["penalized_mask_loss"]
         self.images: Dict[Literal["a", "b"], List[np.ndarray]] = {}
         self._coverage_ratio = coverage_ratio
+        self._dfl_preview = dfl_preview
         logger.debug("Initialized %s", self.__class__.__name__)
 
     def toggle_mask_display(self) -> None:
@@ -743,7 +751,7 @@ class _Samples():  # pylint:disable=too-few-public-methods
         logger.debug("Returning predictions: %s", {key: val.shape for key, val in preds.items()})
         return preds
 
-    def _compile_preview(self, predictions: Dict[str, np.ndarray]) -> np.ndarray:
+    def _compile_preview(self, predictions: Dict[str, np.ndarray]) -> np.ndarray: # FIX PREVIEW HERE FOR DFL STYLE
         """ Compile predictions and images into the final preview image.
 
         Parameters
@@ -758,28 +766,38 @@ class _Samples():  # pylint:disable=too-few-public-methods
         """
         figures: Dict[Literal["a", "b"], np.ndarray] = {}
         headers: Dict[Literal["a", "b"], np.ndarray] = {}
+        
+        if self._dfl_preview:
+            width = self.images["a"][0].shape[0]
+            figure = np.empty(((4 * width), (5 * width)))
+            display = self._to_full_frame("a", self.images["a"], [predictions["a_a"], predictions["b_a"]])
+            temp = display[2]
+            figures["a"] = np.hstack([np.vstack(d) for d in display[0:2]])
+            display = self._to_full_frame("b", self.images["b"], [predictions["b_b"]])
+            display.append(temp)
+            figures["b"] = np.hstack([np.vstack(d) for d in display ])
+            figure = np.concatenate([figures["a"], figures["b"]], axis=1)
+        else:
+            for side, samples in self.images.items():
+                other_side = "a" if side == "b" else "b"
+                preds = [predictions[f"{side}_{side}"],
+                        predictions[f"{other_side}_{side}"]]
+                display = self._to_full_frame(side, samples, preds)
+                headers[side] = self._get_headers(side, display[0].shape[1])
+                figures[side] = np.stack([display[0], display[1], display[2], ], axis=1)
+                if self.images[side][1].shape[0] % 2 == 1:
+                    figures[side] = np.concatenate([figures[side],
+                                                    np.expand_dims(figures[side][0], 0)])
+            width = 4
+            if width // 2 != 1:
+                headers = self._duplicate_headers(headers, width // 2)
 
-        for side, samples in self.images.items():
-            other_side = "a" if side == "b" else "b"
-            preds = [predictions[f"{side}_{side}"],
-                     predictions[f"{other_side}_{side}"]]
-            display = self._to_full_frame(side, samples, preds)
-            headers[side] = self._get_headers(side, display[0].shape[1])
-            figures[side] = np.stack([display[0], display[1], display[2], ], axis=1)
-            if self.images[side][1].shape[0] % 2 == 1:
-                figures[side] = np.concatenate([figures[side],
-                                                np.expand_dims(figures[side][0], 0)])
-
-        width = 4
-        if width // 2 != 1:
-            headers = self._duplicate_headers(headers, width // 2)
-
-        header = np.concatenate([headers["a"], headers["b"]], axis=1)
-        figure = np.concatenate([figures["a"], figures["b"]], axis=0)
-        height = int(figure.shape[0] / width)
-        figure = figure.reshape((width, height) + figure.shape[1:])
-        figure = _stack_images(figure)
-        figure = np.concatenate((header, figure), axis=0)
+            header = np.concatenate([headers["a"], headers["b"]], axis=1)
+            figure = np.concatenate([figures["a"], figures["b"]], axis=0)
+            height = int(figure.shape[0] / width)
+            figure = figure.reshape((width, height) + figure.shape[1:])
+            figure = _stack_images(figure)
+            figure = np.concatenate((header, figure), axis=0)
 
         logger.debug("Compiled sample")
         return np.clip(figure * 255, 0, 255).astype('uint8')
@@ -1028,12 +1046,13 @@ class _Timelapse():  # pylint:disable=too-few-public-methods
                  coverage_ratio: float,
                  image_count: int,
                  feeder: _Feeder,
+                 dfl_preview: bool, 
                  image_paths: Dict[Literal["a", "b"], List[str]]) -> None:
         logger.debug("Initializing %s: model: %s, coverage_ratio: %s, image_count: %s, "
                      "feeder: '%s', image_paths: %s)", self.__class__.__name__, model,
                      coverage_ratio, image_count, feeder, len(image_paths))
         self._num_images = image_count
-        self._samples = _Samples(model, coverage_ratio)
+        self._samples = _Samples(model, coverage_ratio, dfl_preview)
         self._model = model
         self._feeder = feeder
         self._image_paths = image_paths
