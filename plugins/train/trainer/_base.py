@@ -776,12 +776,10 @@ class _Samples():  # pylint:disable=too-few-public-methods
             width = self.images["a"][0].shape[0]
             figure = np.empty(((4 * width), (5 * width)))
             display = self._to_full_frame("a", self.images["a"], [predictions["a_a"], predictions["b_a"]])
-            temp = display[2]
-            figures["a"] = np.hstack([np.vstack(d) for d in display[0:2]])
+            figures["a"] = np.hstack([np.vstack(d) for d in display])
             display = self._to_full_frame("b", self.images["b"], [predictions["b_b"]])
-            display.append(temp)
             figures["b"] = np.hstack([np.vstack(d) for d in display ])
-            figure = np.concatenate([figures["a"], figures["b"]], axis=1)
+            figure = np.concatenate([figures["b"], figures["a"]], axis=1)
         else:
             for side, samples in self.images.items():
                 other_side = "a" if side == "b" else "b"
