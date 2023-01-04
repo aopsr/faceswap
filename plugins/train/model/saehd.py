@@ -23,6 +23,7 @@ class Model(ModelBase):
         self.ae_dims = self.config["ae_dims"]
         self.e_dims = self.config["e_dims"]
         self.d_dims = self.config["d_dims"]
+        self.learn_mask = self.config["learn_mask"]
 
         self.archi_type = self.config["archi_type"]
         self.u = self.config["u"]
@@ -121,7 +122,7 @@ class Model(ModelBase):
         var_x = Dense(self.lowest_dense_res ** 2 * ae_ch * 2)(var_x)
         var_x = Reshape((self.lowest_dense_res, self.lowest_dense_res, ae_ch * 2))(var_x)
         if not self.t:
-            var_x = UpscaleBlock(ae_ch*2, activation="leakyrelu", subpixel=2)(var_x)
+            var_x = UpscaleBlock(ae_ch*2, activation="leakyrelu")(var_x)
         
         return KerasModel(input_, var_x, name=name)
     
@@ -130,28 +131,50 @@ class Model(ModelBase):
         var_x = input_
         
         if self.t:
-            var_x = UpscaleBlock(d_ch*8, activation="leakyrelu", subpixel=2)(var_x)
+            var_x = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_x)
             var_x = ResidualBlock(d_ch*8)(var_x)
-            var_x = UpscaleBlock(d_ch*8, activation="leakyrelu", subpixel=2)(var_x)
+            var_x = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_x)
             var_x = ResidualBlock(d_ch*8)(var_x)
-            var_x = UpscaleBlock(d_ch*4, activation="leakyrelu", subpixel=2)(var_x)
+            var_x = UpscaleBlock(d_ch*4, activation="leakyrelu")(var_x)
             var_x = ResidualBlock(d_ch*4)(var_x)
-            var_x = UpscaleBlock(d_ch*2, activation="leakyrelu", subpixel=2)(var_x)
+            var_x = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_x)
             var_x = ResidualBlock(d_ch*2)(var_x)
+
+            if self.learn_mask:
+                var_y = input_
+                var_y = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_y)
+                var_y = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_y)
+                var_y = UpscaleBlock(d_ch*4, activation="leakyrelu")(var_y)
+                var_y = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_y)
+
         else:
-            var_x = UpscaleBlock(d_ch*8, activation="leakyrelu", subpixel=2)(var_x)
+            var_x = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_x)
             var_x = ResidualBlock(d_ch*8)(var_x)
-            var_x = UpscaleBlock(d_ch*4, activation="leakyrelu", subpixel=2)(var_x)
+            var_x = UpscaleBlock(d_ch*4, activation="leakyrelu")(var_x)
             var_x = ResidualBlock(d_ch*4)(var_x)
-            var_x = UpscaleBlock(d_ch*2, activation="leakyrelu", subpixel=2)(var_x)
+            var_x = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_x)
             var_x = ResidualBlock(d_ch*2)(var_x)
+
+            if self.learn_mask:
+                var_y = input_
+                var_y = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_y)
+                var_y = UpscaleBlock(d_ch*4, activation="leakyrelu")(var_y)
+                var_y = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_y)
         
         if self.d:
-            var_x = UpscaleBlock(d_ch*2, activation="leakyrelu", subpixel=2)(var_x)
+            var_x = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_x)
+            
+            if self.learn_mask:
+                var_y = UpscaleBlock(d_ch, activation="leakyrelu")(var_y)
         
-        var_x = Conv2DOutput(filters = 3, kernel_size = 3, 
-                            name="face_out", dtype="float32")(var_x)
-
+        var_x = Conv2DOutput(filters = 3, kernel_size = 1, 
+                            name="face_out_" + name, dtype="float32")(var_x)
+        
         outputs = [var_x]
+
+        if self.learn_mask:
+            var_y = Conv2DOutput(filters = 1, kernel_size = 1, 
+                            name="mask_out_" + name, dtype="float32")(var_y)
+            outputs.append(var_y)
 
         return KerasModel(input_, outputs=outputs, name=name)
