@@ -1,36 +1,20 @@
 import numpy as np
 
 from lib.model.nn_blocks import (
-    Conv2D, Conv2DBlock, Conv2DOutput, ResidualBlock, UpscaleBlock, Upscale2xBlock,
-    UpscaleResizeImagesBlock, UpscaleDNYBlock, FMEN)
-from lib.model.normalization import (
-    AdaInstanceNormalization, GroupNormalization, InstanceNormalization, LayerNormalization,
-    RMSNormalization)
-from lib.utils import get_backend, get_tf_version, FaceswapError
+    Conv2DBlock, Conv2DOutput, ResidualBlock, UpscaleBlock )
+from lib.model.normalization import LayerNormalization
+from lib.utils import get_backend
 
-from ._base import KerasModel, ModelBase, get_all_sub_models
+from ._base import KerasModel, ModelBase
 if get_backend() == "amd":
-    from keras import applications as kapp, backend as K
+    from keras import backend as K
     from keras.layers import (
-        Activation, Add, BatchNormalization, Concatenate, Dense, Dropout, Flatten, GaussianNoise, MaxPool2D,
-        GlobalAveragePooling2D, GlobalMaxPooling2D, Input, LeakyReLU, Reshape, UpSampling2D,
-        Conv2D as KConv2D)
-    from keras.models import clone_model
-    # typing checks
-    import keras
-    from plaidml.tile import Value as Tensor  # pylint:disable=import-error
+         Concatenate, Dense, Flatten, Input, Reshape )
 else:
     # Ignore linting errors from Tensorflow's thoroughly broken import system
-    from tensorflow.keras import applications as kapp, backend as K  # pylint:disable=import-error
+    from tensorflow.keras import backend as K  # pylint:disable=import-error
     from tensorflow.keras.layers import (  # pylint:disable=import-error,no-name-in-module
-        Activation, Add, BatchNormalization, Concatenate, Dense, Dropout, Flatten, GaussianNoise, MaxPool2D,
-        GlobalAveragePooling2D, GlobalMaxPooling2D, Input, LeakyReLU, Reshape, UpSampling2D,
-        Conv2D as KConv2D)
-    from tensorflow.keras.models import clone_model  # noqa pylint:disable=import-error,no-name-in-module
-    # typing checks
-    from tensorflow import keras
-    from tensorflow import Tensor
-
+        Concatenate, Dense, Flatten, Input, Reshape )
 
 class Model(ModelBase):
     def __init__(self, *args, **kwargs):
@@ -121,6 +105,7 @@ class Model(ModelBase):
         
         if self.u:
             var_x = LayerNormalization()(var_x)
+            
         var_x = Flatten()(var_x)
 
         # if self.u:
