@@ -125,9 +125,6 @@ class ModelBase():
 
         self._configfile = arguments.configfile if hasattr(arguments, "configfile") else None
         self._load_config()
-        if not predict:
-            self.config["eye_multiplier"] = arguments.eye_multiplier
-            self.config["mouth_multiplier"] = arguments.mouth_multiplier
 
         if self.config["penalized_mask_loss"] and self.config["mask_type"] is None:
             raise FaceswapError("Penalized Mask Loss has been selected but you have not chosen a "
@@ -157,6 +154,11 @@ class ModelBase():
                                   self._mixed_precision,
                                   self.config["allow_growth"],
                                   self._is_predict)
+                                  
+        if not predict:
+            self.config["eye_multiplier"] = arguments.eye_multiplier
+            self.config["mouth_multiplier"] = arguments.mouth_multiplier
+
         self._loss = Loss(self.config, self.color_order)
 
         logger.debug("Initialized ModelBase (%s)", self.__class__.__name__)
