@@ -80,6 +80,9 @@ _LOSS_HELP = dict(
         "texture, luminance, contrast, and local spatial statistics of an image. Potentially "
         "delivers more realistic looking images. Ref: Image Quality Assessment: From Error "
         "Visibility to Structural Similarity http://www.cns.nyu.edu/pub/eero/wang03-reprint.pdf"),
+    lwssim=(
+        "Replace multiplication of luminance, contract, and structure terms with addition in SSIM. "
+        "https://arxiv.org/abs/1904.13362"),
     pixel_gradient_diff=(
         "Instead of minimizing the difference between the absolute value of each "
         "pixel in two reference images, compute the pixel to pixel spatial difference in each "

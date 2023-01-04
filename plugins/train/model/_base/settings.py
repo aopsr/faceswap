@@ -110,6 +110,7 @@ class Loss():
                                              init=False),
                                pixel_gradient_diff=LossClass(function=losses.GradientLoss),
                                ssim=LossClass(function=losses.DSSIMObjective),
+                               lwssim=LossClass(function=losses.LWSSIMObjective),
                                smooth_loss=LossClass(function=losses.GeneralizedLoss))
 
         logger.debug("Initialized: %s", self.__class__.__name__)
@@ -247,9 +248,19 @@ class Loss():
             The amount of weight to apply to the given loss function
         """
         logger.debug("Adding loss function: %s, weight: %s", loss_function, weight)
-        loss_wrapper.add_loss(self._get_function(loss_function), # TODO: if resolution >= 256, half weights dssim with filter_size at res/11.6 and res/23.2. otherwise filter_size res/11.6
-                              weight=weight,
-                              mask_channel=self._mask_channels[0])
+        resolution = self._config["output_size"]
+        if resolution < 256 or loss_function != "ssim":
+            loss_wrapper.add_loss(self._get_function(loss_function),
+                                weight=weight,
+                                mask_channel=self._mask_channels[0])
+        else:
+            # weighted loss over different filter size
+            loss_wrapper.add_loss(losses.DSSIMObjective(filter_size = int(resolution/11.6)),
+                                weight=weight/2,
+                                mask_channel=self._mask_channels[0])
+            loss_wrapper.add_loss(losses.DSSIMObjective(filter_size = int(resolution/23.2)),
+                                weight=weight/2,
+                                mask_channel=self._mask_channels[0])
 
         channel_idx = 1
         for section in ("eye_multiplier", "mouth_multiplier"):

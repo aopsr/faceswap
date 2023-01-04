@@ -14,7 +14,7 @@ from tensorflow.python.keras.engine import compile_utils  # noqa pylint:disable=
 from tensorflow.keras import backend as K  # pylint:disable=import-error
 
 from .feature_loss_tf import LPIPSLoss  #pylint:disable=unused-import # noqa
-from .perceptual_loss_tf import DSSIMObjective, GMSDLoss, LDRFLIPLoss, MSSIMLoss  #pylint:disable=unused-import # noqa
+from .perceptual_loss_tf import DSSIMObjective, LWSSIMObjective, GMSDLoss, LDRFLIPLoss, MSSIMLoss  #pylint:disable=unused-import # noqa
 
 logger = logging.getLogger(__name__)
 

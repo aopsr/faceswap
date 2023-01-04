@@ -160,6 +160,8 @@ class DSSIMObjective():  # pylint:disable=too-few-public-methods
         retval = (1. - ssim) / 2.0
         return K.mean(retval)
 
+class LWSSIMObjective():
+    pass
 
 class GMSDLoss():  # pylint:disable=too-few-public-methods
     """ Gradient Magnitude Similarity Deviation Loss.
