@@ -94,7 +94,7 @@ _DEFAULTS = {
         group="settings"
     ),
     "include_glasses": dict(
-        default=True,
+        default=False,
         info="Whether to include glasses within the face mask.\n\tFor 'original' weights "
              "excluding glasses will mask out the lenses as well as the frames.\n\tFor 'faceswap' "
              "weights, the model has been trained to mask out lenses if eyes cannot be seen (i.e. "
