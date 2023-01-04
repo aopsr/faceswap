@@ -133,3 +133,20 @@ class Config(FaceswapConfig):
             group="re-align",
             info="If enabled, and 're-align' has been selected for extraction, then any "
                  "alignments which would be filtered out will not be re-aligned.")
+        self.add_item(
+            section=section,
+            title="normalization",
+            datatype=str,
+            default="clahe",
+            choices=["none", "clahe", "hist", "mean"],
+            group="aligner-normalization",
+            gui_radio=True,
+            info="R|Performing normalization can help the aligner better align faces with "
+                   "difficult lighting conditions at an extraction speed cost. Different methods "
+                   "will yield different results on different sets. NB: This does not impact the "
+                   "output face, just the input to the aligner."
+                   "\nL|none: Don't perform normalization on the face."
+                   "\nL|clahe: Perform Contrast Limited Adaptive Histogram Equalization on the "
+                   "face."
+                   "\nL|hist: Equalize the histograms on the RGB channels."
+                   "\nL|mean: Normalize the face colors to the mean.")

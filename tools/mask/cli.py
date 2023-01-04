@@ -58,7 +58,8 @@ class MaskArgs(FaceSwapArgs):
             opts=("-M", "--masker"),
             action=Radio,
             type=str.lower,
-            choices=PluginLoader.get_available_extractors("mask"),
+            choices=[mask for mask in PluginLoader.get_available_extractors("mask")
+                     if mask not in ("components", "extended")],
             default="extended",
             group=_("process"),
             help=_("R|Masker to use."

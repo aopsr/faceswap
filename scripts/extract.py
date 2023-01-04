@@ -17,6 +17,7 @@ from lib.image import encode_image, generate_thumbnail, ImagesLoader, ImagesSave
 from lib.multithreading import MultiThread
 from lib.utils import get_folder, _image_extensions, _video_extensions
 from plugins.extract.pipeline import Extractor, ExtractMedia
+from plugins.extract._base import _get_config
 from scripts.fsmedia import Alignments, PostProcess, finalize
 
 if TYPE_CHECKING:
@@ -51,7 +52,8 @@ class Extract():  # pylint:disable=too-few-public-methods
         self._validate_batchmode()
 
         configfile = self._args.configfile if hasattr(self._args, "configfile") else None
-        normalization = None if self._args.normalization == "none" else self._args.normalization
+        configdict = _get_config(configfile)
+        normalization = configdict["normalization"] if hasattr(configdict, "normalization") else "clahe"
         maskers = ["components", "extended"]
         maskers += self._args.masker if self._args.masker else []
         recognition = None #("vgg_face2"

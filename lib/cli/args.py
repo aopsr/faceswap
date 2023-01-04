@@ -427,23 +427,23 @@ class ExtractArgs(ExtractConvertArgs):
                    "\nL|bisenet-fp: Generic masker that works well for almost all scenes"
                    "\nL|xseg: DFL Xseg model. Place your xseg model weights in faceswap root"
                    "\n(eg: `-M xseg`, `--masker bisenet-fp xseg`)")))
-        argument_list.append(dict(
-            opts=("-nm", "--normalization"),
-            action=Radio,
-            type=str.lower,
-            dest="normalization",
-            default="clahe",
-            choices=["none", "clahe", "hist", "mean"],
-            group=_("Plugins"),
-            help=_("R|Performing normalization can help the aligner better align faces with "
-                   "difficult lighting conditions at an extraction speed cost. Different methods "
-                   "will yield different results on different sets. NB: This does not impact the "
-                   "output face, just the input to the aligner."
-                   "\nL|none: Don't perform normalization on the face."
-                   "\nL|clahe: Perform Contrast Limited Adaptive Histogram Equalization on the "
-                   "face."
-                   "\nL|hist: Equalize the histograms on the RGB channels."
-                   "\nL|mean: Normalize the face colors to the mean.")))
+        # argument_list.append(dict(
+        #     opts=("-nm", "--normalization"),
+        #     action=Radio,
+        #     type=str.lower,
+        #     dest="normalization",
+        #     default="clahe",
+        #     choices=["none", "clahe", "hist", "mean"],
+        #     group=_("Plugins"),
+        #     help=_("R|Performing normalization can help the aligner better align faces with "
+        #            "difficult lighting conditions at an extraction speed cost. Different methods "
+        #            "will yield different results on different sets. NB: This does not impact the "
+        #            "output face, just the input to the aligner."
+        #            "\nL|none: Don't perform normalization on the face."
+        #            "\nL|clahe: Perform Contrast Limited Adaptive Histogram Equalization on the "
+        #            "face."
+        #            "\nL|hist: Equalize the histograms on the RGB channels."
+        #            "\nL|mean: Normalize the face colors to the mean.")))
         argument_list.append(dict(
             opts=("-rf", "--re-feed"),
             action=Slider,
@@ -1144,7 +1144,7 @@ class TrainArgs(FaceSwapArgs):
             dest="preview",
             default=False,
             group=_("preview"),
-            help=_("Show training preview output. in a separate window.")))
+            help=_("Preview in a separate window. Default False - embedded in GUI")))
         argument_list.append(dict(
             opts=("-w", "--write-image"),
             action="store_true",
