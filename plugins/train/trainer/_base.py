@@ -82,11 +82,15 @@ class TrainerBase():
                  pretrain: bool,
                  color_transfer: str,
                  dfl_preview: bool,
+                 eye_multiplier: int,
+                 mouth_multiplier: int,
                  configfile: Optional[str]) -> None:
         logger.debug("Initializing %s: (model: '%s', batch_size: %s)",
                      self.__class__.__name__, model, batch_size)
         self._model = model
         self._config = self._get_config(configfile)
+        self._config["eye_multiplier"] = eye_multiplier
+        self._config["mouth_multiplier"] = mouth_multiplier
 
         self._model.state.add_session_batchsize(batch_size)
         self._images = images
@@ -95,7 +99,8 @@ class TrainerBase():
         self._pretrain = pretrain
         self._color_transfer = color_transfer
 
-        self._feeder = _Feeder(images, self._model, batch_size, pretrain, color_transfer, dfl_preview, self._config)
+        self._feeder = _Feeder(images, self._model, batch_size, pretrain, color_transfer,
+                                dfl_preview, self._config)
 
         self._tensorboard = self._set_tensorboard()
         self._samples = _Samples(self._model, self._model.coverage_ratio, dfl_preview)

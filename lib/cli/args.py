@@ -1086,6 +1086,26 @@ class TrainArgs(FaceSwapArgs):
         #     group=_("training"),
         #     help=_("Color transfer samples to reduce color mismatch")))
         argument_list.append(dict(
+            opts=("-em", "--eye-multiplier"),
+            dest="eye_multiplier",
+            action=Slider,
+            min_max=(0, 40),
+            rounding=1,
+            type=int,
+            default=3,
+            group=_("emp"),
+            help=_("Eye multiplier")))
+        argument_list.append(dict(
+            opts=("-mm", "--mouth-multiplier"),
+            dest="mouth_multiplier",
+            action=Slider,
+            min_max=(0, 40),
+            rounding=1,
+            type=int,
+            default=3,
+            group=_("emp"),
+            help=_("Mouth multiplier")))
+        argument_list.append(dict(
             opts=("-s", "--save-interval"),
             action=Slider,
             min_max=(1000, 100000),

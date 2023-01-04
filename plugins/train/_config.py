@@ -469,36 +469,36 @@ class Config(FaceswapConfig):
                  "\n\t MSE - Mean squared error will guide reconstructions of each pixel "
                  "towards its average value in the training dataset. As an average, it will be "
                  "susceptible to outliers and typically produces slightly blurrier results.")
-        self.add_item(
-            section=section,
-            title="eye_multiplier",
-            datatype=int,
-            group="loss",
-            min_max=(1, 40),
-            rounding=1,
-            default=3,
-            fixed=False,
-            info="The amount of priority to give to the eyes.\n\nThe value given here is as a "
-                 "multiplier of the main loss score. For example:"
-                 "\n\t 1 - The eyes will receive the same priority as the rest of the face. "
-                 "\n\t 10 - The eyes will be given a score 10 times higher than the rest of the "
-                 "face."
-                 "\n\nNB: Penalized Mask Loss must be enable to use this option.")
-        self.add_item(
-            section=section,
-            title="mouth_multiplier",
-            datatype=int,
-            group="loss",
-            min_max=(1, 40),
-            rounding=1,
-            default=3,
-            fixed=False,
-            info="The amount of priority to give to the mouth.\n\nThe value given here is as a "
-                 "multiplier of the main loss score. For Example:"
-                 "\n\t 1 - The mouth will receive the same priority as the rest of the face. "
-                 "\n\t 10 - The mouth will be given a score 10 times higher than the rest of the "
-                 "face."
-                 "\n\nNB: Penalized Mask Loss must be enable to use this option.")
+        # self.add_item(
+        #     section=section,
+        #     title="eye_multiplier",
+        #     datatype=int,
+        #     group="loss",
+        #     min_max=(1, 40),
+        #     rounding=1,
+        #     default=3,
+        #     fixed=False,
+        #     info="The amount of priority to give to the eyes.\n\nThe value given here is as a "
+        #          "multiplier of the main loss score. For example:"
+        #          "\n\t 1 - The eyes will receive the same priority as the rest of the face. "
+        #          "\n\t 10 - The eyes will be given a score 10 times higher than the rest of the "
+        #          "face."
+        #          "\n\nNB: Penalized Mask Loss must be enable to use this option.")
+        # self.add_item(
+        #     section=section,
+        #     title="mouth_multiplier",
+        #     datatype=int,
+        #     group="loss",
+        #     min_max=(1, 40),
+        #     rounding=1,
+        #     default=3,
+        #     fixed=False,
+        #     info="The amount of priority to give to the mouth.\n\nThe value given here is as a "
+        #          "multiplier of the main loss score. For Example:"
+        #          "\n\t 1 - The mouth will receive the same priority as the rest of the face. "
+        #          "\n\t 10 - The mouth will be given a score 10 times higher than the rest of the "
+        #          "face."
+        #          "\n\nNB: Penalized Mask Loss must be enable to use this option.")
         self.add_item(
             section=section,
             title="penalized_mask_loss",

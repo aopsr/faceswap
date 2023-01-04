@@ -125,6 +125,9 @@ class ModelBase():
 
         self._configfile = arguments.configfile if hasattr(arguments, "configfile") else None
         self._load_config()
+        if not predict:
+            self.config["eye_multiplier"] = arguments.eye_multiplier
+            self.config["mouth_multiplier"] = arguments.mouth_multiplier
 
         if self.config["penalized_mask_loss"] and self.config["mask_type"] is None:
             raise FaceswapError("Penalized Mask Loss has been selected but you have not chosen a "
@@ -360,8 +363,8 @@ class ModelBase():
         if self.config["mask_type"] is None:
             self.config["penalized_mask_loss"] = False
             self.config["learn_mask"] = False
-            self.config["eye_multiplier"] = 1
-            self.config["mouth_multiplier"] = 1
+            # self.config["eye_multiplier"] = 1
+            # self.config["mouth_multiplier"] = 1
         self._state.save()
 
     def _validate_input_shape(self) -> None:
