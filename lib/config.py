@@ -246,7 +246,7 @@ class FaceswapConfig():
         choices = list() if not choices else choices
 
         if None in (section, title, default, info):
-            raise ValueError("Default config items must have a section, title, defult and "
+            raise ValueError("Default config items must have a section, title, default and "
                              "information text")
         if not self.defaults.get(section, None):
             raise ValueError("Section does not exist: {}".format(section))
