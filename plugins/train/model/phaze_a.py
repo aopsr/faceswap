@@ -1036,10 +1036,13 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
                      self.__class__.__name__, side, layer_indicies)
         self._side = side
         self._config = config
-        if self._config["dec_type"] == "FMEN":
-            self._config["dec_norm"] = "" # temp fix
         self._is_dny = self._config["dec_upscale_method"].lower() == "upscale_dny"
         self._layer_indicies = layer_indicies
+        self._filters = self._config["dec_filters"]
+        if self._filters:
+            self._filters = [int(x.strip()) for x in self._filters.split(",")]
+        else:
+            self._filters = []
         logger.debug("Initialized: %s", self.__class__.__name__,)
 
     def _reshape_for_output(self, inputs: Tensor) -> Tensor:
@@ -1222,7 +1225,7 @@ class UpscaleBlocks():  # pylint: disable=too-few-public-methods
                 var_x = self._dny_entry(var_x)
             if self._is_dny and self._config["learn_mask"]:
                 var_y = self._dny_entry(var_y)
-
+        
         # De-convolve
         if not self._filters:
             output_size = self._config["output_size"]
@@ -1350,7 +1353,10 @@ class Decoder():  # pylint:disable=too-few-public-methods
         self._side = side
         self._input_shape = input_shape
         self._config = config
-        self.fmen = self._config["dec_type"] == "FMEN"
+        self._dec_type = self._config["dec_type"]
+        self.learn_mask = self._config["learn_mask"]
+        self.d_ch = self._config["d_dims"]
+        self.d = True
         logger.debug("Initialized: %s", self.__class__.__name__,)
 
     def __call__(self) -> keras.models.Model:
@@ -1365,38 +1371,76 @@ class Decoder():  # pylint:disable=too-few-public-methods
 
         num_ups_in_fc = self._config["dec_upscales_in_fc"]
 
-        if self._config["learn_mask"] and num_ups_in_fc:
+        if self.learn_mask and num_ups_in_fc:
             # Mask has already been created in FC and is an output of that model
             inputs = [inputs, Input(shape=self._input_shape)]
 
-        indicies = None if not num_ups_in_fc else (num_ups_in_fc, -1)
-        upscales = UpscaleBlocks(self._side,
-                                 self._config,
-                                 layer_indicies=indicies)(inputs)
+        if self._dec_type == "original":
+            indicies = None if not num_ups_in_fc else (num_ups_in_fc, -1)
+            upscales = UpscaleBlocks(self._side,
+                                    self._config,
+                                    layer_indicies=indicies)(inputs)
 
-        if self._config["learn_mask"]:
-            var_x, var_y = upscales
+            if self.learn_mask:
+                var_x, var_y = upscales
+            else:
+                var_x = upscales
+        
         else:
-            var_x = upscales
+            d_ch = self.d_ch
+            if self.learn_mask and num_ups_in_fc:
+                var_x, var_y = inputs[0], inputs[1]
+            else:
+                var_x = inputs
+
+            if num_ups_in_fc == 0:
+                var_x = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_x)
+                var_x = ResidualBlock(d_ch*8)(var_x)
+                var_x = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_x)
+                var_x = ResidualBlock(d_ch*8)(var_x)
+                var_x = UpscaleBlock(d_ch*4, activation="leakyrelu")(var_x)
+                var_x = ResidualBlock(d_ch*4)(var_x)
+                var_x = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_x)
+                var_x = ResidualBlock(d_ch*2)(var_x)
+
+                if self.learn_mask:
+                    var_y = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_y)
+                    var_y = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_y)
+                    var_y = UpscaleBlock(d_ch*4, activation="leakyrelu")(var_y)
+                    var_y = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_y)
+            
+            elif num_ups_in_fc == 1:
+                var_x = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_x)
+                var_x = ResidualBlock(d_ch*8)(var_x)
+                var_x = UpscaleBlock(d_ch*4, activation="leakyrelu")(var_x)
+                var_x = ResidualBlock(d_ch*4)(var_x)
+                var_x = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_x)
+                var_x = ResidualBlock(d_ch*2)(var_x)
+
+                if self.learn_mask:
+                    var_y = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_y)
+                    var_y = UpscaleBlock(d_ch*4, activation="leakyrelu")(var_y)
+                    var_y = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_y)
+            
+            else:
+                raise NotImplementedError("Not supported yet.")
+
+            if self.d:
+                var_x = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_x)
+            
+                if self.learn_mask:
+                    var_y = UpscaleBlock(d_ch, activation="leakyrelu")(var_y)
+
 
         var_x = Conv2DOutput(3, self._config["dec_output_kernel"], 
                             name="face_out", dtype="float32")(var_x)
-        if self._config["learn_mask"]:
+        
+        outputs = [var_x]
+        if self.learn_mask:
             var_y = Conv2DOutput(1,
                                 self._config["dec_output_kernel"],
                                 name="mask_out",
                                 dtype="float32")(var_y)
-        
-        # # if upscale
-        # if self.fmen and self._is_predict:
-        #     var_x = FMEN()(var_x)
-        #     var_x = K.cast(var_x, "float32")
-        #     if self._config["learn_mask"]:
-        #         var_y = K.resize_images(var_y, 4, 4, "channels_last") # support batch size?
-        #         var_y = K.cast(var_y, "float32")
-
-        outputs = [var_x]
-        if self._config["learn_mask"]:
             outputs.append(var_y)
         
         return KerasModel(inputs, outputs=outputs, name=f"decoder_{self._side}")
