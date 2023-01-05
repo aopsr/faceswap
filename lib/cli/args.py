@@ -1058,24 +1058,6 @@ class TrainArgs(FaceSwapArgs):
         #     group=_("training"),
         #     help=_("[Deprecated - Use '-D, --distribution-strategy' instead] Use the Tensorflow "
         #            "Mirrored Distrubution Strategy to train on multiple GPUs.")))
-        argument_list.append(dict(
-            opts=("-D", "--distribution-strategy"),
-            dest="distribution_strategy",
-            action=Radio,
-            type=str.lower,
-            choices=["default", "central-storage", "mirrored"],
-            default="default",
-            backend="nvidia",
-            group=_("training"),
-            help=_("R|Select the distribution stategy to use."
-                   "\nL|default: Use Tensorflow's default distribution strategy."
-                   "\nL|central-storage: Centralizes variables on the CPU whilst operations are "
-                   "performed on 1 or more local GPUs. This can help save some VRAM at the cost "
-                   "of some speed by not storing variables on the GPU. Note: Mixed-Precision is "
-                   "not supported on multi-GPU setups."
-                   "\nL|mirrored: Supports synchronous distributed training across multiple local "
-                   "GPUs. A copy of the model and all variables are loaded onto each GPU with "
-                   "batches distributed to each GPU at each iteration.")))
         # argument_list.append(dict(
         #     opts=("-ct", "--color-transfer"),
         #     dest="color_transfer",
@@ -1085,6 +1067,34 @@ class TrainArgs(FaceSwapArgs):
         #     default="none",
         #     group=_("training"),
         #     help=_("Color transfer samples to reduce color mismatch")))
+        argument_list.append(dict(
+            opts=("-nf", "--no-flip"),
+            action="store_true",
+            dest="no_flip",
+            default=False,
+            group=_("augmentation"),
+            help=_("To effectively learn, a random set of images are flipped horizontally. "
+                   "Sometimes it is desirable for this not to occur. Generally this should be "
+                   "left off except for during 'fit training'.")))
+        argument_list.append(dict(
+            opts=("-nac", "--no-augment-color"),
+            action="store_true",
+            dest="no_augment_color",
+            default=False,
+            group=_("augmentation"),
+            help=_("Color augmentation helps make the model less susceptible to color "
+                   "differences between the A and B sets, at an increased training time cost. "
+                   "Enable this option to disable color augmentation.")))
+        argument_list.append(dict(
+            opts=("-nw", "--no-warp"),
+            action="store_true",
+            dest="no_warp",
+            default=False,
+            group=_("augmentation"),
+            help=_("Warping is integral to training the Neural Network. This option should only "
+                   "be enabled towards the very end of training to try to bring out more detail. "
+                   "Think of it as 'fine-tuning'. Enabling this option from the beginning is "
+                   "likely to kill a model and lead to terrible results.")))
         argument_list.append(dict(
             opts=("-em", "--eye-multiplier"),
             dest="eye_multiplier",
@@ -1180,14 +1190,6 @@ class TrainArgs(FaceSwapArgs):
             default=False,
             group=_("preview"),
             help=_("DFL preview style")))
-        argument_list.append(dict(
-            opts=("-nl", "--no-logs"),
-            action="store_true",
-            dest="no_logs",
-            default=False,
-            group=_("training"),
-            help=_("Disables TensorBoard logging. NB: Disabling logs means that you will not be "
-                   "able to use the graph or analysis for this session in the GUI.")))
         # argument_list.append(dict(
         #     opts=("-wl", "--warp-to-landmarks"),
         #     action="store_true",
@@ -1198,33 +1200,31 @@ class TrainArgs(FaceSwapArgs):
         #            "rather than randomly warping the face. This is the 'dfaker' way of doing "
         #            "warping.")))
         argument_list.append(dict(
-            opts=("-nf", "--no-flip"),
-            action="store_true",
-            dest="no_flip",
-            default=False,
-            group=_("augmentation"),
-            help=_("To effectively learn, a random set of images are flipped horizontally. "
-                   "Sometimes it is desirable for this not to occur. Generally this should be "
-                   "left off except for during 'fit training'.")))
+            opts=("-D", "--distribution-strategy"),
+            dest="distribution_strategy",
+            action=Radio,
+            type=str.lower,
+            choices=["default", "central-storage", "mirrored"],
+            default="default",
+            backend="nvidia",
+            group=_("Global Options"),
+            help=_("R|Select the distribution stategy to use."
+                   "\nL|default: Use Tensorflow's default distribution strategy."
+                   "\nL|central-storage: Centralizes variables on the CPU whilst operations are "
+                   "performed on 1 or more local GPUs. This can help save some VRAM at the cost "
+                   "of some speed by not storing variables on the GPU. Note: Mixed-Precision is "
+                   "not supported on multi-GPU setups."
+                   "\nL|mirrored: Supports synchronous distributed training across multiple local "
+                   "GPUs. A copy of the model and all variables are loaded onto each GPU with "
+                   "batches distributed to each GPU at each iteration.")))
         argument_list.append(dict(
-            opts=("-nac", "--no-augment-color"),
+            opts=("-nl", "--no-logs"),
             action="store_true",
-            dest="no_augment_color",
+            dest="no_logs",
             default=False,
-            group=_("augmentation"),
-            help=_("Color augmentation helps make the model less susceptible to color "
-                   "differences between the A and B sets, at an increased training time cost. "
-                   "Enable this option to disable color augmentation.")))
-        argument_list.append(dict(
-            opts=("-nw", "--no-warp"),
-            action="store_true",
-            dest="no_warp",
-            default=False,
-            group=_("augmentation"),
-            help=_("Warping is integral to training the Neural Network. This option should only "
-                   "be enabled towards the very end of training to try to bring out more detail. "
-                   "Think of it as 'fine-tuning'. Enabling this option from the beginning is "
-                   "likely to kill a model and lead to terrible results.")))
+            group=_("Global Options"),
+            help=_("Disables TensorBoard logging. NB: Disabling logs means that you will not be "
+                   "able to use the graph or analysis for this session in the GUI.")))
         return argument_list
 
 
