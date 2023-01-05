@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """ Xseg face mask plugin. """
 
+import os
+import sys
+
 import numpy as np
 
 from lib.model.session import KSession
@@ -28,7 +31,7 @@ else:
 class Mask(Masker):
     """ Neural network to process face image into a segmentation mask of the face """
     def __init__(self, **kwargs):
-        model_filename = "XSeg_256.npy"
+        model_filename = os.path.join(os.path.abspath(os.path.dirname(sys.argv[0])), "XSeg_256.npy")
         super().__init__(**kwargs)
         self.model_path = model_filename
         self.name = "Xseg"
@@ -52,7 +55,6 @@ class Mask(Masker):
         batch.feed = np.array([feed.extract_face_xseg()[..., :3]
                                     for feed in batch.feed_faces],
                                    dtype="float32") / 255.0
-
         logger.trace("feed shape: %s", batch.feed.shape)
 
     def predict(self, feed: np.ndarray) -> np.ndarray:
@@ -66,14 +68,16 @@ class Mask(Masker):
 
         masks = []
         for prediction, feed in zip(batch.prediction, batch.feed_faces):
+            prediction[prediction < 0.1] = 0
+            
             matrix = feed.matrix.copy()
             padding = feed._padding_from_coverage(256, 1.0)["face"]
             matrix = matrix * (256 - 2 * padding)
             matrix[:, 2] += padding
 
             transform_matrix = np.dot(np.append(matrix, [[0,0,1]], axis=0), np.append(cv2.invertAffineTransform(feed._xseg_matrix), [[0,0,1]], axis=0))[0:2]
-            prediction[prediction < 0.1] = 0
-            mask = cv2.warpAffine(prediction, transform_matrix, (256, 256), cv2.INTER_CUBIC)
+            mask = cv2.warpAffine(prediction, transform_matrix, (256,256), cv2.INTER_LANCZOS4)
+
             mask[mask<0.5] = 0
             mask[mask>=0.5] = 1
             masks.append(mask)

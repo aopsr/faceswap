@@ -1386,7 +1386,7 @@ class Decoder():  # pylint:disable=too-few-public-methods
             else:
                 var_x = upscales
         
-        else:
+        else: # TODO: validate input dims
             d_ch = self.d_ch
             if self.learn_mask and num_ups_in_fc:
                 var_x, var_y = inputs[0], inputs[1]
