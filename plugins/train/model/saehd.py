@@ -69,8 +69,8 @@ class Model(ModelBase):
             inter = self.inter(self.ae_dims, "inter", inter_input_shape)
             inter_a, inter_b = inter(encoder_a), inter(encoder_b)
             decoder_input_shape = K.int_shape(inter_a)[1:]
-            outputs = [self.decoder("b", decoder_input_shape)(inter_b), 
-                       self.decoder("a", decoder_input_shape)(inter_a)]
+            outputs = [self.decoder(self.d_dims, "b", decoder_input_shape)(inter_b), 
+                       self.decoder(self.d_dims, "a", decoder_input_shape)(inter_a)]
         else:
             inter_ab = self.inter(self.ae_dims, "inter_ab", inter_input_shape)
 
