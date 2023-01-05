@@ -103,14 +103,11 @@ class Model(ModelBase):
         else:
             for i in range(4):
                 var_x = Conv2DBlock(e_ch*(min(2**i, 8)), activation="leakyrelu")(var_x)
-        
-        if self.u:
-            var_x = LayerNormalization()(var_x)
             
         var_x = Flatten()(var_x)
 
-        # if self.u:
-        #     pixel norm
+        if self.u:
+            var_x = var_x / K.sqrt(K.mean(K.square(var_x), -1, keepdims=True) + K.epsilon())
 
         return KerasModel(input_, var_x, name="encoder")
     
