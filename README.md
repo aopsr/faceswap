@@ -49,7 +49,9 @@ Manual and sort tool allow for easy cleanup of extracted faces and alignments.
 
 ## Training
 
-Phaze-A allows for highly optimized model architecture - high quality and resolution with low memory requirements. **SAEHD can be replicated exactly in Phaze-A**, including 'd' and 't' options. 'u' is superseded by other normalization techniques. See example config files for optimized architectures that outperform SAEHD.
+### NOTE: SAEHD has been ported in its entirety - DF/LIAE and udt options.
+
+Phaze-A allows for highly optimized model architecture - high quality and resolution with low memory requirements. See example config files for optimized architectures that outperform SAEHD.
 
 Features (everything is fully customizable):
 - input and output size
@@ -75,9 +77,9 @@ The best performing models are IAE style but with G-block instead of shared full
   - Optionally freeze loaded weights for 5-10k iters in the beginning to allow other layers to catch up
 
 For optimized 256px model:
-1. RW, random flip until face reasonably formed (100k iters)
+1. RW, random flip until face reasonably formed (150k iters)
 2. Increase EMP (default eye and mouth 3), mouth to 10-20 if no teeth separation (optional during RW stage)
-3. No RW, no random flip until face is crisp (30k iters)
+3. No RW, no random flip until face is crisp (50k iters)
 
 6GB card (RTX A3000) trains optimized 256px model at BS 8 in 1 day.
 
