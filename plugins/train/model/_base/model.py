@@ -907,7 +907,7 @@ class _Inference():  # pylint:disable=too-few-public-methods
         retval = [(node[0], node[2]) for node in anodes]
         return retval
 
-    def _make_inference_model(self, saved_model: keras.models.Model) -> keras.models.Model: ## TODO: insert FMEN decoder here if necessary
+    def _make_inference_model(self, saved_model: keras.models.Model) -> keras.models.Model:
         """ Extract the sub-models from the saved model that are required for inference.
 
         Parameters
@@ -965,7 +965,7 @@ class _Inference():  # pylint:disable=too-few-public-methods
             retval = KerasModel(model_inputs, model, name=f"{saved_model.name}_inference")
 
             try:
-                d = np.load("fmen_weights.npz")
+                d = np.load(os.path.join(os.path.abspath(os.path.dirname(sys.argv[0])), "fmen_weights.npz"))
             except:
                 raise Exception("fmen model not found")
 
