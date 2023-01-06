@@ -414,6 +414,40 @@ class RemoveFaces():  # pylint:disable=too-few-public-methods
 
         logger.info("%s Extracted face(s) had their header information updated", len(to_update))
 
+class RemoveMasks():  # pylint:disable=too-few-public-methods
+    """ Remove masks
+
+    Parameters
+    ---------
+    alignments: :class:`tools.alignments.media.AlignmentsData`
+        The loaded alignments containing masks to be removed
+    """
+    def __init__(self, alignments: "AlignmentData", arguments: Namespace) -> None:
+        logger.debug("Initializing %s: alignments: %s, arguments: %s",
+                     self.__class__.__name__, alignments, arguments)
+        self._alignments = alignments
+        self._masks = arguments.masks
+        logger.debug("Initialized %s", self.__class__.__name__)
+
+    def process(self) -> bool:
+        """ Parse through the face data updating any entries in the alignments file.
+
+        Returns
+        -------
+        bool
+            ``True`` if any alignment information was updated otherwise ``False``
+        """
+        for frame in self._alignments.data.values():
+            for face in frame["faces"]:
+                mask = face["mask"]
+                for mtype in self._masks:
+                    try:
+                        mask.pop(mtype)
+                    except:
+                        pass
+                face["mask"] = mask
+
+        self._alignments.save()
 
 class FaceToFile():  # pylint:disable=too-few-public-methods
     """ Updates any optional/missing keys in the alignments file with any data that has been
@@ -490,3 +524,4 @@ class FaceToFile():  # pylint:disable=too-few-public-methods
             retval = True
             logger.info("Updated alignments file from PNG Data: %s", self._counts)
         return retval
+

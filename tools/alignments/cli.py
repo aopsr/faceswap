@@ -6,8 +6,9 @@ import gettext
 from typing import Any, List, Dict
 
 from lib.cli.args import FaceSwapArgs
-from lib.cli.actions import DirOrFileFullPaths, DirFullPaths, FileFullPaths, Radio, Slider
+from lib.cli.actions import DirOrFileFullPaths, DirFullPaths, FileFullPaths, Radio, Slider, MultiOption
 
+from plugins.plugin_loader import PluginLoader
 
 # LOCALES
 _LANG = gettext.translation("tools.alignments.cli", localedir="locales", fallback=True)
@@ -54,7 +55,7 @@ class AlignmentsArgs(FaceSwapArgs):
             action=Radio,
             type=str,
             choices=("draw", "extract", "from-faces", "missing-alignments", "missing-frames",
-                     "multi-faces", "no-faces", "remove-faces", "rename", "sort", "spatial"),
+                     "multi-faces", "no-faces", "remove-faces", "rename", "sort", "spatial", "remove-masks"),
             group=_("processing"),
             required=True,
             help=_("R|Choose which action you want to perform. NB: All actions require an "
@@ -166,4 +167,16 @@ class AlignmentsArgs(FaceSwapArgs):
                    "that have been resized from 256px or above. Setting to 100 will only extract "
                    "faces that have been resized from 512px or above. A setting of 200 will only "
                    "extract faces that have been downscaled from 1024px or above.")))
+        argument_list.append(dict(
+            opts=("-M", "--masks"),
+            action=MultiOption,
+            type=str.lower,
+            nargs="+",
+            choices=[mask for mask in PluginLoader.get_available_extractors("mask")
+                     if mask not in ("components", "extended")],
+            group=_("Remove Masks"),
+            help=_("R|Optionally mask faces. It is recommended to clean up alignments first, then mask in Tools -> Mask."
+                   "\nL|bisenet-fp: Generic masker that works well for almost all scenes"
+                   "\nL|xseg: DFL Xseg model. Place your xseg model weights in faceswap root"
+                   "\n(eg: `-M xseg`, `--masker bisenet-fp xseg`)")))
         return argument_list
