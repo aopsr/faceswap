@@ -168,7 +168,7 @@ def main():
         print_fail("[-] Aborting")
         sys.exit(1)
     run_test(
-        "Extraction images with  detector and cv2-dnn aligner.",
+        "Extraction images with S3FD detector and FAN aligner.",
         extract_args(img_base, pathjoin(img_base, "faces"))
     )
 

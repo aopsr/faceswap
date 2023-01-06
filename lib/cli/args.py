@@ -318,16 +318,15 @@ class ExtractConvertArgs(FaceSwapArgs):
             dest="input_dir",
             required=True,
             group=_("Data"),
-            help=_("Input directory or video. Either a directory containing the image files you "
-                   "wish to process or path to a video file. NB: This should be the source video/"
-                   "frames NOT the source faces.")))
+            help=_("Video or folder of frames. For convert, this is the dst video.")))
         argument_list.append(dict(
             opts=("-o", "--output-dir"),
             action=DirFullPaths,
             dest="output_dir",
             required=True,
             group=_("Data"),
-            help=_("Output directory. This is where the converted files will be saved.")))
+            help=_("For extract, output directory for extracted faces.\n"
+                   "For convert, output directory for converted frames or video.")))
         argument_list.append(dict(
             opts=("-al", "--alignments"),
             action=FileFullPaths,
@@ -703,9 +702,11 @@ class ConvertArgs(ExtractConvertArgs):
             type=str.lower,
             dest="mask_type",
             default="bisenet-fp_face",
-            choices=PluginLoader.get_available_extractors("mask",
+            choices=[mask for mask in PluginLoader.get_available_extractors("mask",
                                                           add_none=True,
-                                                          extend_plugin=True) + ["predicted"],
+                                                          extend_plugin=True) 
+                                                          if mask not in ("components", "extended")]
+                                                          + ["predicted"],
             group=_("Plugins"),
             help=_("R|Mask to use. NB: The mask you require must exist within the alignments "
                    "file. You can add additional masks with the Mask Tool."
@@ -732,9 +733,11 @@ class ConvertArgs(ExtractConvertArgs):
             type=str.lower,
             dest="secondary_mask_type",
             default="none",
-            choices=PluginLoader.get_available_extractors("mask",
+            choices=[mask for mask in PluginLoader.get_available_extractors("mask",
                                                           add_none=True,
-                                                          extend_plugin=True) + ["predicted"],
+                                                          extend_plugin=True) 
+                                                          if mask not in ("components", "extended")]
+                                                          + ["predicted"],
             group=_("Plugins"),
             help=_("R|Secondary mask to use as fallback if primary mask does not exist"
                    "\nL|none: Same as primary.")))

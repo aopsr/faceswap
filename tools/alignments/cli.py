@@ -172,7 +172,7 @@ class AlignmentsArgs(FaceSwapArgs):
             action=MultiOption,
             type=str.lower,
             nargs="+",
-            choices=[mask for mask in PluginLoader.get_available_extractors("mask")
+            choices=[mask for mask in PluginLoader.get_available_extractors("mask", extend_plugin=True)
                      if mask not in ("components", "extended")],
             group=_("Remove Masks"),
             help=_("R|Optionally mask faces. It is recommended to clean up alignments first, then mask in Tools -> Mask."
