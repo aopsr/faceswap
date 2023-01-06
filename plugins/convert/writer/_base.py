@@ -64,7 +64,7 @@ class Output():
     def is_stream(self) -> bool:
         """ bool: Whether the writer outputs a stream or a series images.
 
-        Writers that write to a stream have a frame_order paramater to dictate
+        Writers that write to a stream have a frame_order parameter to dictate
         the order in which frames should be written out (eg. gif/ffmpeg) """
         retval = hasattr(self, "frame_order")
         return retval
