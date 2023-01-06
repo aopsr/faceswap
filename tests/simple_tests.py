@@ -81,11 +81,10 @@ def download_file(url, filename):  # TODO: retry
         return None
 
 
-def extract_args(detector, aligner, in_path, out_path, args=None):
+def extract_args(in_path, out_path, args=None):
     """ Extraction command """
     py_exe = sys.executable
-    _extract_args = (f"{py_exe} faceswap.py extract -i {in_path} -o {out_path} -D {detector} "
-                     f"-A {aligner}")
+    _extract_args = (f"{py_exe} faceswap.py extract -i {in_path} -o {out_path}")
     if args:
         _extract_args += f" {args}"
     return _extract_args.split()
@@ -160,8 +159,8 @@ def main():
         print_fail("[-] Aborting")
         sys.exit(1)
     vid_extract = run_test(
-        "Extraction video with cv2-dnn detector and cv2-dnn aligner.",
-        extract_args("Cv2-Dnn", "Cv2-Dnn", vid_path, pathjoin(vid_base, "faces"))
+        "Extraction video with S3FD detector and FAN aligner.",
+        extract_args(vid_path, pathjoin(vid_base, "faces"))
     )
 
     img_path = download_file(img_src, pathjoin(img_base, "test_img.jpg"))
@@ -169,8 +168,8 @@ def main():
         print_fail("[-] Aborting")
         sys.exit(1)
     run_test(
-        "Extraction images with cv2-dnn detector and cv2-dnn aligner.",
-        extract_args("Cv2-Dnn", "Cv2-Dnn", img_base, pathjoin(img_base, "faces"))
+        "Extraction images with  detector and cv2-dnn aligner.",
+        extract_args(img_base, pathjoin(img_base, "faces"))
     )
 
     if vid_extract:
