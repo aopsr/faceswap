@@ -661,7 +661,6 @@ class AlignedFace():
 
         if self._is_aligned:
             xseg_matrix = (np.append(xseg_matrix, [[0,0,1]], axis=0) @ np.append(cv2.invertAffineTransform(self.adjusted_matrix), [[0,0,1]], axis=0))[0:2]
-            logger.warning("Xseg is not as accurate on face input because crop creates black section. Use frames input")
             return cv2.warpAffine(self._face[..., :3], xseg_matrix, (self._size, self._size), cv2.INTER_LANCZOS4)
 
         return cv2.warpAffine(self._image[..., :3], xseg_matrix, (self._size, self._size), cv2.INTER_LANCZOS4)

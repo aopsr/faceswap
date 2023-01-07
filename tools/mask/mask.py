@@ -366,6 +366,8 @@ class Mask():  # pylint:disable=too-few-public-methods
         if self._update_type != "output":
             assert self._extractor is not None
             if self._input_is_faces:
+                if self._mask_type == "xseg":
+                    logger.warning("Xseg is not as accurate on face input because crop creates black section. Use frames input instead")
                 self._faces_saver = ImagesSaver(self._loader.location, as_bytes=True)
             for extractor_output in self._extractor.detected_faces():
                 self._extractor_input_thread.check_and_raise_error()
