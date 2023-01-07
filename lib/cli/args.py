@@ -1014,10 +1014,8 @@ class TrainArgs(FaceSwapArgs):
             dest="batch_size",
             default=16,
             group=_("training"),
-            help=_("Batch size. This is the number of images processed through the model for each "
-                   "side per iteration. NB: As the model is fed 2 sides at a time, the actual "
-                   "number of images within the model at any one time is double the number that "
-                   "you set here. Larger batches require more GPU RAM.")))
+            help=_("Batch size. Number of images processed through the model for each "
+                   "side per iteration.")))
         argument_list.append(dict(
             opts=("-ga", "--gradient-accum"),
             action=Slider,
@@ -1038,11 +1036,7 @@ class TrainArgs(FaceSwapArgs):
             type=int,
             default=1000000,
             group=_("training"),
-            help=_("Length of training in iterations. This is only really used for automation. "
-                   "There is no 'correct' number of iterations a model should be trained for. "
-                   "You should stop training when you are happy with the previews. However, if "
-                   "you want the model to stop automatically at a set number of iterations, you "
-                   "can set that value here.")))
+            help=_("Automatically stop training after this number of iterations.")))
         # argument_list.append(dict(
         #     opts=("-ct", "--color-transfer"),
         #     dest="color_transfer",
@@ -1088,7 +1082,7 @@ class TrainArgs(FaceSwapArgs):
             rounding=1,
             type=int,
             default=3,
-            group=_("emp"),
+            group=_("Multipliers"),
             help=_("Eye multiplier")))
         argument_list.append(dict(
             opts=("-mm", "--mouth-multiplier"),
@@ -1098,8 +1092,20 @@ class TrainArgs(FaceSwapArgs):
             rounding=1,
             type=int,
             default=3,
-            group=_("emp"),
+            group=_("Multipliers"),
             help=_("Mouth multiplier")))
+        argument_list.append(dict(
+            opts=("-faw", "--face_a_weight"),
+            dest="face_a_weight",
+            action=Slider,
+            min_max=(0, 100),
+            rounding=1,
+            type=int,
+            default=100,
+            group=_("Multipliers"),
+            help=_("Face A weight (%). Reduce this value to give less "
+                   "priority to dst and more to src. "
+                   "Default 100 means dst and src have equal weight.")))
         argument_list.append(dict(
             opts=("-s", "--save-interval"),
             action=Slider,

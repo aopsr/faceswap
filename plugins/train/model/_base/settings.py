@@ -218,13 +218,21 @@ class Loss():
                        if k.startswith("loss_function")
                        and self._config.get(f"loss_weight_{k[-1]}", 100) != 0
                        and lossname is not None]
-
+        # face_a face_b
         for name, output_name in zip(self._names, output_names):
             if name.startswith("mask"):
                 loss_func = self._get_function(self._config["mask_loss_function"])
             else:
                 loss_func = losses.LossWrapper()
+                # scale A and B loss and maintain total
+                # weight of A is face_a_weight * B where 0 <= face_a_weight/100 <= 1
+                face_a_weight = min(max(self._config["face_a_weight"] / 100, 0.0), 1.0)
+                if name == "face_a":
+                    k = 2 * face_a_weight / (1 + face_a_weight)
+                elif name == "face_b":
+                    k = 2 / (1 + face_a_weight)
                 for func, weight in face_losses:
+                    weight *= k
                     self._add_face_loss_function(loss_func, func, weight / 100.)
 
             logger.debug("%s: (output_name: '%s', function: %s)", name, output_name, loss_func)

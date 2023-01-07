@@ -158,6 +158,7 @@ class ModelBase():
         if not predict:
             self.config["eye_multiplier"] = arguments.eye_multiplier
             self.config["mouth_multiplier"] = arguments.mouth_multiplier
+            self.config["face_a_weight"] = arguments.face_a_weight
 
         self._loss = Loss(self.config, self.color_order)
 
