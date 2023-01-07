@@ -161,12 +161,6 @@ class Convert():  # pylint:disable=too-few-public-methods
             raise FaceswapError("Output as video selected, but using frames as input. You must "
                                 "provide a reference video ('-ref', '--reference-video').")
 
-        # if (self._args.on_the_fly and
-        #         self._args.mask_type not in ("none", "extended", "components")):
-        #     logger.warning("You have selected an incompatible mask type ('%s') for On-The-Fly "
-        #                    "conversion. Switching to 'extended'", self._args.mask_type)
-        #     self._args.mask_type = "extended"
-
         if (self._args.mask_type not in ("none", "predicted") and
                 not self._alignments.mask_is_valid(self._args.mask_type, self._args.secondary_mask_type)):
             msg = (f"You have selected the Mask Type `{self._args.mask_type}` but at least one "
@@ -305,9 +299,6 @@ class DiskIO():
         self._frame_ranges = self._get_frame_ranges()
         self._writer = self._get_writer()
 
-        # Extractor for on the fly detection
-        self._extractor = self._load_extractor()
-
         self._queues: Dict[Literal["load", "save"], "EventQueue"] = {}
         self._threads: Dict[Literal["load", "save"], MultiThread] = {}
         self._init_threads()
@@ -422,45 +413,6 @@ class DiskIO():
             retval.append((max(int(start), minframe), min(int(end), maxframe)))
         logger.debug("frame ranges: %s", retval)
         return retval
-
-    def _load_extractor(self) -> Optional[Extractor]:
-        """ Load the CV2-DNN Face Extractor Chain.
-
-        For On-The-Fly conversion we use a CPU based extractor to avoid stacking the GPU.
-        Results are poor.
-
-        Returns
-        -------
-        :class:`plugins.extract.Pipeline.Extractor`
-            The face extraction chain to be used for on-the-fly conversion
-        """
-        if not self._alignments.have_alignments_file and not self._args.on_the_fly:
-            logger.error("No alignments file found. Please provide an alignments file for your "
-                         "destination video (recommended) or enable on-the-fly conversion (not "
-                         "recommended).")
-            sys.exit(1)
-        if self._alignments.have_alignments_file:
-            # if self._args.on_the_fly:
-            #     logger.info("On-The-Fly conversion selected, but an alignments file was found. "
-            #                 "Using pre-existing alignments file: '%s'", self._alignments.file)
-            # else:
-            logger.debug("Alignments file found: '%s'", self._alignments.file)
-            return None
-
-        logger.debug("Loading extractor")
-        logger.warning("On-The-Fly conversion selected. This will use the inferior cv2-dnn for "
-                       "extraction and will produce poor results.")
-        logger.warning("It is recommended to generate an alignments file for your destination "
-                       "video with Extract first for superior results.")
-        extractor = Extractor(detector="cv2-dnn",
-                              aligner="cv2-dnn",
-                              masker=self._args.mask_type,
-                              multiprocess=True,
-                              rotate_images=None,
-                              min_size=20)
-        extractor.launch()
-        logger.debug("Loaded extractor")
-        return extractor
 
     def _init_threads(self) -> None:
         """ Initialize queues and threads.

@@ -862,17 +862,6 @@ class ConvertArgs(ExtractConvertArgs):
             group=_("settings"),
             help=_("[LEGACY] This only needs to be selected if a legacy model is being loaded or "
                    "if there are multiple models in the model folder")))
-        # argument_list.append(dict(
-        #     opts=("-otf", "--on-the-fly"),
-        #     action="store_true",
-        #     dest="on_the_fly",
-        #     default=False,
-        #     group=_("settings"),
-        #     help=_("Enable On-The-Fly Conversion. NOT recommended. You should generate a clean "
-        #            "alignments file for your destination video. However, if you wish you can "
-        #            "generate the alignments on-the-fly by enabling this option. This will use "
-        #            "an inferior extraction pipeline and will lead to substandard results. If an "
-        #            "alignments file is found, this option will be ignored.")))
         argument_list.append(dict(
             opts=("-k", "--keep-unchanged"),
             action="store_true",
