@@ -394,7 +394,7 @@ class AlignedFace():
     dtype: str, optional
         Set a data type for the final face to be returned as. Passing ``None`` will return a face
         with the same data type as the original :attr:`image`. Default: ``None``
-    is_aligned_face: bool, optional
+    is_aligned: bool, optional
         Indicates that the :attr:`image` is an aligned face rather than a frame.
         Default: ``False``
     is_legacy: bool, optional
@@ -655,9 +655,16 @@ class AlignedFace():
     def extract_face_xseg(self) -> Optional[np.ndarray]:
         if self._image is None:
             return None
-        image_to_face_mat = get_transform_mat (self._frame_landmarks, self._size)
-        self._xseg_matrix = image_to_face_mat
-        return cv2.warpAffine(self._image[..., :3], image_to_face_mat, (self._size, self._size), cv2.INTER_LANCZOS4)
+        
+        xseg_matrix = get_transform_mat(self._frame_landmarks, self._size)
+        self._xseg_matrix = xseg_matrix
+
+        if self._is_aligned:
+            xseg_matrix = (np.append(xseg_matrix, [[0,0,1]], axis=0) @ np.append(cv2.invertAffineTransform(self.adjusted_matrix), [[0,0,1]], axis=0))[0:2]
+            logger.warning("Xseg is not as accurate on face input because crop creates black section. Use frames input")
+            return cv2.warpAffine(self._face[..., :3], xseg_matrix, (self._size, self._size), cv2.INTER_LANCZOS4)
+
+        return cv2.warpAffine(self._image[..., :3], xseg_matrix, (self._size, self._size), cv2.INTER_LANCZOS4)
 
     def _convert_centering(self, image: np.ndarray) -> np.ndarray:
         """ When the face being loaded is pre-aligned, the loaded image will have 'head' centering

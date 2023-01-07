@@ -42,6 +42,8 @@ class Mask(Masker):
         self.vram_per_batch = 114
         self.batchsize = self.config["batch-size"]
 
+        self._storage_centering = "head" # to make matrix correct
+
     def init_model(self):
         self.model = Xseg(self.model_path,
                               allow_growth=self.config["allow_growth"],
@@ -65,19 +67,13 @@ class Mask(Masker):
     def process_output(self, batch):
         """ Compile found faces for output """
 
-        # convert dfl wf to fs face
-
         masks = []
         for prediction, feed in zip(batch.prediction, batch.feed_faces):
             prediction[prediction < 0.1] = 0
-            
-            matrix = feed.matrix.copy()
-            padding = feed._padding_from_coverage(256, 1.0)["face"]
-            matrix = matrix * (256 - 2 * padding)
-            matrix[:, 2] += padding
 
-            transform_matrix = np.dot(np.append(matrix, [[0,0,1]], axis=0), np.append(cv2.invertAffineTransform(feed._xseg_matrix), [[0,0,1]], axis=0))[0:2]
-            mask = cv2.warpAffine(prediction, transform_matrix, (256,256), cv2.INTER_LANCZOS4)
+            # convert dfl wf to fs face
+            transform_matrix = (np.append(feed.adjusted_matrix, [[0,0,1]], axis=0) @ np.append(cv2.invertAffineTransform(feed._xseg_matrix), [[0,0,1]], axis=0))[0:2]
+            mask = cv2.warpAffine(prediction, transform_matrix, (self.input_size,self.input_size), cv2.INTER_LANCZOS4)
 
             mask[mask<0.5] = 0
             mask[mask>=0.5] = 1

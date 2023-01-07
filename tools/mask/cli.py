@@ -91,13 +91,13 @@ class MaskArgs(FaceSwapArgs):
             opts=("-p", "--processing"),
             action=Radio,
             type=str.lower,
-            choices=("all", "missing"),
+            choices=("all (overwrite)", "missing"),
             default="missing",
             group=_("process"),
             help=_("R|Whether to update all masks in the alignments files, only those faces "
                    "that do not already have a mask of the given `mask type` or just to output "
                    "the masks to the `output` location."
-                   "\nL|all: Update the mask for all faces in the alignments file."
+                   "\nL|all (Overwrite): Update the mask for all faces in the alignments file."
                    "\nL|missing: Create a mask for all faces in the alignments file where a mask "
                    "does not previously exist."
                    "\nL|output: Don't update the masks, just output them for review in the given "
