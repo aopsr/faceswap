@@ -144,7 +144,6 @@ class Convert():  # pylint:disable=too-few-public-methods
         Ensure that certain cli selections are valid and won't result in an error. Checks:
             * If frames have been passed in with video output, ensure user supplies reference
             video.
-            * If "on-the-fly" and a Neural Network mask is selected, warn and switch to 'extended'
             * If a mask-type is selected, ensure it exists in the alignments file.
             * If a predicted mask-type is selected, ensure model has been trained with a mask
             otherwise attempt to select first available masks, otherwise raise error.
@@ -527,8 +526,7 @@ class DiskIO():
     def _get_detected_faces(self, filename: str, image: np.ndarray) -> List[DetectedFace]:
         """ Return the detected faces for the given image.
 
-        If we have an alignments file, then the detected faces are created from that file. If
-        we're running On-The-Fly then they will be extracted from the extractor.
+        Get detected faces from alignments file.
 
         Parameters
         ----------
@@ -543,10 +541,9 @@ class DiskIO():
             List of :class:`lib.align.DetectedFace` objects
         """
         logger.trace("Getting faces for: '%s'", filename)  # type:ignore
-        if not self._extractor:
-            detected_faces = self._alignments_faces(os.path.basename(filename), image)
-        else:
-            detected_faces = self._detect_faces(filename, image)
+
+        detected_faces = self._alignments_faces(os.path.basename(filename), image)
+
         logger.trace("Got %s faces for: '%s'", len(detected_faces), filename)  # type:ignore
         return detected_faces
 
@@ -596,28 +593,6 @@ class DiskIO():
         if not have_alignments:
             tqdm.write(f"No alignment found for {frame_name}, skipping")
         return have_alignments
-
-    def _detect_faces(self, filename: str, image: np.ndarray) -> List[DetectedFace]:
-        """ Extract the face from a frame for On-The-Fly conversion.
-
-        Pulls detected faces out of the Extraction pipeline.
-
-        Parameters
-        ----------
-        filename: str
-            The filename to return the detected faces for
-        image: :class:`numpy.ndarray`
-            The frame that the detected faces exist in
-
-        Returns
-        -------
-        list
-            List of :class:`lib.align.DetectedFace` objects
-         """
-        assert self._extractor is not None
-        self._extractor.input_queue.put(ExtractMedia(filename, image))
-        faces = next(self._extractor.detected_faces())
-        return faces.detected_faces
 
     # Saving tasks
     def _save(self, completion_event: Event) -> None:
