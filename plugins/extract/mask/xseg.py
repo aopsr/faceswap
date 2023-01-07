@@ -52,9 +52,10 @@ class Mask(Masker):
 
     def process_input(self, batch: BatchType) -> None:
         """ Compile the detected faces for prediction """
-        batch.feed = np.array([feed.extract_face_xseg()[..., :3]
+        batch.feed = np.array([feed.extract_face_xseg()
                                     for feed in batch.feed_faces],
                                    dtype="float32") / 255.0
+
         logger.trace("feed shape: %s", batch.feed.shape)
 
     def predict(self, feed: np.ndarray) -> np.ndarray:
@@ -136,7 +137,7 @@ class TLU(Layer):
 
 class ConvBlock(Layer):
     def __init__(self, in_ch, out_ch, name):
-        self.conv = Conv2D (out_ch, kernel_size=3, padding='same', name=name+"/conv")
+        self.conv = Conv2D(out_ch, kernel_size=3, padding='same', name=name+"/conv")
         self.frn = FRNorm2D(out_ch, name=name+"/frn")
         self.tlu = TLU(out_ch, name=name+"/tlu")
 
@@ -148,7 +149,7 @@ class ConvBlock(Layer):
 
 class UpConvBlock(Layer):
     def __init__(self, in_ch, out_ch, name):
-        self.conv = Conv2DTranspose (out_ch, kernel_size=3, strides=2, padding='same', name=name+"/conv")
+        self.conv = Conv2DTranspose(out_ch, kernel_size=3, strides=2, padding='same', name=name+"/conv")
         self.frn = FRNorm2D(out_ch, name=name+"/frn")
         self.tlu = TLU(out_ch, name=name+"/tlu")
 
@@ -218,7 +219,7 @@ class Xseg(KSession):
         layers = self._model.layers
 
         try:
-            for layer in layers:
+            for layer in layers: # TODO: reshape and permute dense layers to accommodate NCHW to NHWC
                 if len(layer.trainable_weights):
                     names = [weight.name.replace("kernel", "weight") for weight in layer.trainable_weights]
                     weights = [d.get(name, None) for name in names]
@@ -331,11 +332,12 @@ class Xseg(KSession):
         x = x5 = conv53(x)
         x = bp5(x)
         
+        x = Permute((3, 1, 2))(x) # NHWC to NCHW
         x = Flatten()(x)
         x = dense1(x)
         x = dense2(x)
         x = Reshape((base_ch*8, 4, 4))(x)
-        x = Permute((2, 3, 1))(x)
+        x = Permute((2, 3, 1))(x) #NCHW to NHWC
 
         x = up5(x)
         x = uconv53(concat([x, x5]))

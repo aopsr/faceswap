@@ -657,7 +657,7 @@ class AlignedFace():
             return None
         image_to_face_mat = get_transform_mat (self._frame_landmarks, self._size)
         self._xseg_matrix = image_to_face_mat
-        return cv2.warpAffine(self._image, image_to_face_mat, (self._size, self._size), cv2.INTER_LANCZOS4)
+        return cv2.warpAffine(self._image[..., :3], image_to_face_mat, (self._size, self._size), cv2.INTER_LANCZOS4)
 
     def _convert_centering(self, image: np.ndarray) -> np.ndarray:
         """ When the face being loaded is pre-aligned, the loaded image will have 'head' centering
