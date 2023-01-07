@@ -337,6 +337,15 @@ class ExtractConvertArgs(FaceSwapArgs):
             help=_("OPTIONAL path to an alignments file. Leave blank for default location.\n"
                     "For video, the alignments will be in the same directory as the video.\n"
                     "For folder of images, the alignments file will be in the images folder.")))
+        argument_list.append(dict(
+            opts=("-b", "--batch-mode"),
+            action="store_true",
+            dest="batch_mode",
+            default=False,
+            group=_("Data"),
+            help=_("R|If selected then the input_dir should be a parent folder containing "
+                   "multiple videos and/or folders of images you wish to extract from or convert. "
+                   "For extract, the faces will be output to separate sub-folders in the output_dir.")))
         return argument_list
 
 
@@ -378,15 +387,7 @@ class ExtractArgs(ExtractConvertArgs):
             default_aligner = "fan"
 
         argument_list: List[Dict[str, Any]] = []
-        argument_list.append(dict(
-            opts=("-b", "--batch-mode"),
-            action="store_true",
-            dest="batch_mode",
-            default=False,
-            group=_("Data"),
-            help=_("R|If selected then the input_dir should be a parent folder containing "
-                   "multiple videos and/or folders of images you wish to extract from. The faces "
-                   "will be output to separate sub-folders in the output_dir.")))
+        
         # argument_list.append(dict(
         #     opts=("-D", "--detector"),
         #     action=Radio,

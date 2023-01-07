@@ -22,7 +22,7 @@ from lib.gpu_stats import GPUStats
 from lib.image import read_image_meta_batch, ImagesLoader
 from lib.multithreading import MultiThread, total_cpus
 from lib.queue_manager import queue_manager
-from lib.utils import FaceswapError, get_backend, get_folder, get_image_paths
+from lib.utils import FaceswapError, get_backend, get_folder, get_image_paths, _video_extensions
 from plugins.extract.pipeline import Extractor, ExtractMedia
 from plugins.plugin_loader import PluginLoader
 
@@ -87,6 +87,34 @@ class Convert():  # pylint:disable=too-few-public-methods
     def __init__(self, arguments: "Namespace") -> None:
         logger.debug("Initializing %s: (args: %s)", self.__class__.__name__, arguments)
         self._args = arguments
+        self.batch_mode = self._args.batch_mode
+
+        if self.batch_mode:
+            self._args.alignments_path = ""
+            input_files = [os.path.join(self._args.input_dir, input_file) for input_file in os.listdir(self._args.input_dir)]
+            self._files = [input_file for input_file in input_files
+                            # valid video
+                            if ((os.path.splitext(input_file)[1].lower() in _video_extensions and
+                            os.path.exists(f"{os.path.splitext(input_file)[0]}_alignments.fsa"))) or
+                            # valid frames folder
+                            (os.path.isdir(input_file) and os.path.exists(os.path.join(input_file, "alignments.fsa")))]
+
+            logger.info("Batch mode selected processing: %s", self._files)
+
+        self.load_var(0)
+    
+    def load_var(self, i: int) -> None:
+        if self.batch_mode:
+            self._args.input_dir = self._files[i]
+            if self._args.writer not in ("ffmpeg", "gif"): # output as frames
+                self._args.output_dir2 = (os.path.join(self._args.output_dir, os.path.normpath(self._args.input_dir) + "_converted") 
+                                            if os.path.isdir(self._args.input_dir) 
+                                            else os.path.splitext(os.path.normpath(self._args.input_dir))[0] + "_converted")
+            else:
+                self._args.output_dir2 = self._args.output_dir
+            logger.info("Processing job %s of %s: '%s'", i + 1, len(self._files), self._args.input_dir)
+        else:
+            self._args.output_dir2 = self._args.output_dir
 
         self._images = ImagesLoader(self._args.input_dir, fast_count=True)
         self._alignments = Alignments(self._args, False, self._images.is_video)
@@ -99,10 +127,10 @@ class Convert():  # pylint:disable=too-few-public-methods
         self._opts = OptionalActions(self._args, self._images.file_list, self._alignments)
 
         self._add_queues()
-        self._disk_io = DiskIO(self._alignments, self._images, arguments)
-        self._predictor = Predict(self._disk_io.load_queue, self._queue_size, arguments)
+        self._disk_io = DiskIO(self._alignments, self._images, self._args)
+        self._predictor = Predict(self._disk_io.load_queue, self._queue_size, self._args)
         self._validate()
-        get_folder(self._args.output_dir)
+        get_folder(self._args.output_dir2)
 
         configfile = self._args.configfile if hasattr(self._args, "configfile") else None
         self._converter = Converter(self._predictor.output_size,
@@ -112,7 +140,7 @@ class Convert():  # pylint:disable=too-few-public-methods
                                     self._images.is_video,
                                     self._disk_io.draw_transparent,
                                     self._disk_io.pre_encode,
-                                    arguments,
+                                    self._args,
                                     configfile=configfile)
         self._patch_threads = self._get_threads()
         logger.debug("Initialized %s", self.__class__.__name__)
@@ -213,22 +241,27 @@ class Convert():  # pylint:disable=too-few-public-methods
         """
         logger.debug("Starting Conversion")
         # queue_manager.debug_monitor(5)
-        try:
-            self._convert_images()
-            self._disk_io.save_thread.join()
-            queue_manager.terminate_queues()
+        for i in range(0, len(self._files) if self.batch_mode else 1):
+            try:
+                if self.batch_mode and i > 0:
+                    self.load_var(i)
 
-            finalize(self._images.count,
-                     self._predictor.faces_count,
-                     self._predictor.verify_output)
-            logger.debug("Completed Conversion")
-        except MemoryError as err:
-            msg = ("Faceswap ran out of RAM running convert. Conversion is very system RAM "
-                   "heavy, so this can happen in certain circumstances when you have a lot of "
-                   "cpus but not enough RAM to support them all."
-                   "\nYou should lower the number of processes in use by either setting the "
-                   "'singleprocess' flag (-sp) or lowering the number of parallel jobs (-j).")
-            raise FaceswapError(msg) from err
+                self._convert_images()
+                self._disk_io.save_thread.join()
+                queue_manager.terminate_queues()
+
+                finalize(self._images.count,
+                        self._predictor.faces_count,
+                        self._predictor.verify_output)
+                logger.debug("Completed Conversion")
+            except MemoryError as err:
+                msg = ("Faceswap ran out of RAM running convert. Conversion is very system RAM "
+                    "heavy, so this can happen in certain circumstances when you have a lot of "
+                    "cpus but not enough RAM to support them all."
+                    "\nYou should lower the number of processes in use by either setting the "
+                    "'singleprocess' flag (-sp) or lowering the number of parallel jobs (-j).")
+                raise FaceswapError(msg) from err
+    
 
     def _convert_images(self) -> None:
         """ Start the multi-threaded patching process, monitor all threads for errors and join on
