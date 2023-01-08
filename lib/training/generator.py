@@ -770,6 +770,38 @@ class PreviewDataGenerator(DataGenerator):
 
         logger.trace("Processed samples: %s", retval.shape)  # type: ignore
         return [retval]
+    
+    def _process_batch(self, filenames: List[str]) -> BatchType:
+        """ Prepares data for feeding through subclassed methods.
+
+        If this is the first time a face has been loaded, then it's meta data is extracted from the
+        png header and added to :attr:`_face_cache`
+
+        Parameters
+        ----------
+        filenames: list
+            List of full paths to image file names for a single batch
+
+        Returns
+        -------
+        :class:`numpy.ndarray`
+            4-dimensional array of faces to feed the training the model.
+        list
+            List of 4-dimensional :class:`numpy.ndarray`. The number of channels here will vary.
+            The first 3 channels are (rgb/bgr). The 4th channel is the face mask. Any subsequent
+            channels are area masks (e.g. eye/mouth masks)
+        """
+        raw_faces, detected_faces = self._get_images_with_meta(filenames)
+        batch = self._buffer()
+        self._crop_to_coverage(filenames, raw_faces, detected_faces, batch)
+        self._apply_mask(detected_faces, batch)
+        feed, targets = self.process_batch(filenames, raw_faces, detected_faces, batch)
+
+        logger.trace("Processed %s batch side %s. (filenames: %s, feed: %s, "  # type: ignore
+                     "targets: %s)", self.__class__.__name__, self._side, filenames,
+                     feed.shape, [t.shape for t in targets])
+
+        return feed, targets, filenames
 
     def process_batch(self,
                       filenames: List[str],

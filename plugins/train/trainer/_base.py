@@ -11,6 +11,7 @@ import logging
 import os
 import sys
 import time
+from pathlib import Path
 from typing import Callable, cast, Dict, Generator, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import cv2
@@ -537,28 +538,31 @@ class _Feeder():
         feed: Dict[Literal["a", "b"], np.ndarray] = {}
         samples: Dict[Literal["a", "b"], np.ndarray] = {}
         masks: Dict[Literal["a", "b"], np.ndarray] = {}
+        names: Dict[Literal["a", "b"], str] = {}
 
         # MyPy can't recurse into nested dicts to get the type :(
         iterator = cast(Dict[Literal["a", "b"], Generator[BatchType, None, None]],
                         self._display_feeds["timelapse" if is_timelapse else "preview"])
         for side in get_args(Literal["a", "b"]):
-            side_feed, side_samples = next(iterator[side])
+            side_feed, side_samples, filenames = next(iterator[side])
             batchsizes.append(len(side_samples[0]))
             samples[side] = side_samples[0]
             feed[side] = side_feed[..., :3]
             masks[side] = side_feed[..., 3][..., None]
+            names[side] = [Path(f).stem for f in filenames]
 
         logger.debug("Generated samples: is_timelapse: %s, images: %s", is_timelapse,
                      {key: {k: v.shape for k, v in item.items()}
                       for key, item
                       in zip(("feed", "samples", "sides"), (feed, samples, masks))})
-        return self.compile_sample(min(batchsizes), feed, samples, masks)
+        return self.compile_sample(min(batchsizes), feed, samples, masks, names)
 
     def compile_sample(self,
                        image_count: int,
                        feed: Dict[Literal["a", "b"], np.ndarray],
                        samples: Dict[Literal["a", "b"], np.ndarray],
-                       masks: Dict[Literal["a", "b"], np.ndarray]
+                       masks: Dict[Literal["a", "b"], np.ndarray],
+                       names: Dict[Literal["a", "b"], str] = {}
                        ) -> Dict[Literal["a", "b"], List[np.ndarray]]:
         """ Compile the preview samples for display.
 
@@ -575,6 +579,8 @@ class _Feeder():
         masks: dict
             Dictionary for side "a", "b" of :class:`numpy.ndarray`. The masks that should be used
             for creating the preview.
+        names: dict
+            Dictionary for side "a", "b" of :class:`str`. The filenames of preview images.
 
         Returns
         -------
@@ -588,8 +594,8 @@ class _Feeder():
             logger.debug("Compiling samples: (side: '%s', samples: %s)", side, num_images)
             retval[side] = [feed[side][0:num_images],
                             samples[side][0:num_images],
+                            names[side][0:num_images],
                             masks[side][0:num_images]]
-        logger.debug("Compiled Samples: %s", {k: [i.shape for i in v] for k, v in retval.items()})
         return retval
 
     def set_timelapse_feed(self,
@@ -845,6 +851,11 @@ class _Samples():  # pylint:disable=too-few-public-methods
             images = [batch[..., :3] for batch in images]
 
         images = [self._overlay_foreground(full.copy(), image) for image in images]
+
+        # add filename to original faces
+        for im, filename in zip(images[0], samples[2]):
+            (w, h), baseline = cv2.getTextSize(filename, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1) ## TODO: scale font based on image size
+            cv2.putText(im, filename, (0, im.shape[0] - baseline), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (1, 1, 1), 1, cv2.LINE_AA)
 
         return images
 
