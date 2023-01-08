@@ -215,14 +215,21 @@ class Xseg(KSession):
         layers = self._model.layers
 
         try:
-            for layer in layers: # TODO: reshape and permute dense layers to accommodate NCHW to NHWC
+            for layer in layers:
                 if len(layer.trainable_weights):
                     names = [weight.name.replace("kernel", "weight") for weight in layer.trainable_weights]
                     weights = [d.get(name, None) for name in names]
-
+                    if layer.__class__.__name__ == "Dense":
+                        idx = np.arange(0, 32*8*4*4).reshape((32*8, 4, 4)).transpose((1, 2, 0)).flatten()
+                        if "dense1" in names[0]:
+                            weights[0] = weights[0][idx, :]
+                        elif "dense2" in names[0]:
+                            weights[0] = weights[0][:, idx] # kernel
+                            weights[1] = weights[1][idx] # bias
                     layer.set_weights(weights)
 
-        except:
+        except Exception as e:
+            print(str(e))
             raise Exception("error loading xseg model weights")
 
     @classmethod
@@ -328,12 +335,10 @@ class Xseg(KSession):
         x = x5 = conv53(x)
         x = bp5(x)
         
-        x = Permute((3, 1, 2))(x) # NHWC to NCHW
         x = Flatten()(x)
         x = dense1(x)
         x = dense2(x)
-        x = Reshape((base_ch*8, 4, 4))(x)
-        x = Permute((2, 3, 1))(x) #NCHW to NHWC
+        x = Reshape((4, 4, base_ch*8))(x)
 
         x = up5(x)
         x = uconv53(concat([x, x5]))
