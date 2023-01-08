@@ -256,7 +256,7 @@ class Loss():
             The amount of weight to apply to the given loss function
         """
         logger.debug("Adding loss function: %s, weight: %s", loss_function, weight)
-        resolution = self._config["output_size"]
+        resolution = self._config.get("output_size", 64)
         if resolution < 256 or loss_function != "ssim":
             loss_wrapper.add_loss(self._get_function(loss_function),
                                 weight=weight,
