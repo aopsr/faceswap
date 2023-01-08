@@ -4,6 +4,8 @@
 
 <font size="3"> Faceswap++ is an improved superset of Faceswap and DeepFaceLab. </font>
 
+This is an experiment-focused repo aimed at developing better deepfaking techniques. All new features are personally conceived, implemented, and tested. Faceswap++ will continue to be in sync with upstream and maintain backwards compatibility, in general.
+
 ## Installation
 See [INSTALL.md](INSTALL.md)
 
