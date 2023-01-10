@@ -212,6 +212,12 @@ _DEFAULTS = dict(
         datatype=bool,
         group="encoder",
         fixed=True),
+    efficientnetv2_lite=dict(
+        default=False,
+        info="Use lite version of EfficientNetV2. Remove squeeze-and-excite, replace swish with RELU6.",
+        datatype=bool,
+        group="encoder",
+        fixed=True),
 
     # Bottleneck
     bottleneck_type=dict(
@@ -228,7 +234,8 @@ _DEFAULTS = dict(
         fixed=True),
     bottleneck_norm=dict(
         default="layer",
-        info="Apply a normalization layer after encoder output and prior to the bottleneck."
+        info="Apply a normalization layer after encoder output and prior to the bottleneck. "
+             "Pixel norm is done to flattened output."
              "\n\tnone - Do not apply a normalization layer"
              "\n\tinstance - Apply Instance Normalization"
              "\n\tlayer - Apply Layer Normalization (Ba et al., 2016)"
@@ -236,7 +243,7 @@ _DEFAULTS = dict(
              "simplified version of Layer Normalization with reduced overhead.",
         datatype=str,
         gui_radio=True,
-        choices=["none", "instance", "layer", "rms"],
+        choices=["none", "instance", "layer", "rms", "pixel"],
         group="bottleneck",
         fixed=True),
     bottleneck_size=dict(

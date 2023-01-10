@@ -16,6 +16,7 @@ from lib.model.nn_blocks import (
 from lib.model.normalization import (
     AdaInstanceNormalization, GroupNormalization, InstanceNormalization, LayerNormalization,
     RMSNormalization)
+from lib import model as cmodel
 from lib.utils import get_backend, get_tf_version, FaceswapError
 
 from ._base import KerasModel, ModelBase, get_all_sub_models
@@ -545,12 +546,13 @@ def _bottleneck(inputs: Tensor, bottleneck: str, size: int, normalization: str) 
     """
     norms = dict(layer=LayerNormalization,
                  rms=RMSNormalization,
-                 instance=InstanceNormalization)
+                 instance=InstanceNormalization,
+                 pixel="pixel")
     bottlenecks = dict(average_pooling=GlobalAveragePooling2D(),
                        dense=Dense(size),
                        max_pooling=GlobalMaxPooling2D())
     var_x = inputs
-    if normalization:
+    if normalization and normalization != "pixel":
         var_x = norms[normalization]()(var_x)
     if bottleneck == "dense" and len(K.int_shape(var_x)[1:]) > 1:
         # Flatten non-1D inputs for dense bottleneck
@@ -559,6 +561,8 @@ def _bottleneck(inputs: Tensor, bottleneck: str, size: int, normalization: str) 
     if len(K.int_shape(var_x)[1:]) > 1:
         # Flatten prior to fc layers
         var_x = Flatten()(var_x)
+    if normalization == "pixel":
+        var_x = var_x / K.sqrt(K.mean(K.square(var_x), -1, keepdims=True) + K.epsilon())
     return var_x
 
 
@@ -732,6 +736,7 @@ class Encoder():  # pylint:disable=too-few-public-methods
         kwargs = self._model_kwargs.get(arch, {})
         if arch.startswith("efficientnet_v2"):
             kwargs["include_preprocessing"] = False
+            kwargs["lite"] = self._config["efficientnetv2_lite"]
         return model, kwargs
 
     def __call__(self) -> keras.models.Model:
@@ -780,7 +785,10 @@ class Encoder():  # pylint:disable=too-few-public-methods
             kwargs["input_shape"] = self._input_shape
             kwargs["include_top"] = False
             kwargs["weights"] = "imagenet" if self._config["enc_load_weights"] else None
-            retval = getattr(kapp, model.keras_name)(**kwargs)
+            if model.keras_name.startswith("EfficientNetV2"):
+                retval = getattr(cmodel, model.keras_name)(**kwargs)
+            else:
+                retval = getattr(kapp, model.keras_name)(**kwargs)
         else:
             retval = _EncoderFaceswap(self._config)
         return retval

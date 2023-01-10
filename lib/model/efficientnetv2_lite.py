@@ -664,9 +664,10 @@ def MBConvBlock(
                 momentum=bn_momentum,
                 name=name + "expand_bn",
             )(x)
-            x = layers.Activation(activation, name=name + "expand_activation")(
-                x
-            )
+            if activation == "RELU6":
+                x = layers.ReLU(6.0, name=name + "expand_activation")(x)
+            else:
+                x = layers.Activation(activation, name=name + "expand_activation")(x)
         else:
             x = inputs
 
@@ -683,7 +684,10 @@ def MBConvBlock(
         x = layers.BatchNormalization(
             axis=bn_axis, momentum=bn_momentum, name=name + "bn"
         )(x)
-        x = layers.Activation(activation, name=name + "activation")(x)
+        if activation == "RELU6":
+            x = layers.ReLU(6.0, name=name + "activation")(x)
+        else:
+            x = layers.Activation(activation, name=name + "activation")(x)
 
         # Squeeze and excite
         if 0 < se_ratio <= 1:
@@ -777,9 +781,10 @@ def FusedMBConvBlock(
             x = layers.BatchNormalization(
                 axis=bn_axis, momentum=bn_momentum, name=name + "expand_bn"
             )(x)
-            x = layers.Activation(
-                activation=activation, name=name + "expand_activation"
-            )(x)
+            if activation == "RELU6":
+                x = layers.ReLU(6.0, name=name + "expand_activation")(x)
+            else:
+                x = layers.Activation(activation=activation, name=name + "expand_activation")(x)
         else:
             x = inputs
 
@@ -827,9 +832,10 @@ def FusedMBConvBlock(
             axis=bn_axis, momentum=bn_momentum, name=name + "project_bn"
         )(x)
         if expand_ratio == 1:
-            x = layers.Activation(
-                activation=activation, name=name + "project_activation"
-            )(x)
+            if activation == "RELU6":
+                x = layers.ReLU(6.0, name=name + "project_activation")(x)
+            else:
+                x = layers.Activation(activation=activation, name=name + "project_activation")(x)
 
         # Residual:
         if strides == 1 and input_filters == output_filters:
@@ -865,6 +871,7 @@ def EfficientNetV2(
     classes=1000,
     classifier_activation="softmax",
     include_preprocessing=True,
+    lite=False,
 ):
     """Instantiates the EfficientNetV2 architecture using given scaling
     coefficients.
@@ -955,6 +962,9 @@ def EfficientNetV2(
 
     bn_axis = 3 if backend.image_data_format() == "channels_last" else 1
 
+    if lite:
+        activation="RELU6"
+
     x = img_input
 
     if include_preprocessing:
@@ -992,7 +1002,10 @@ def EfficientNetV2(
         momentum=bn_momentum,
         name="stem_bn",
     )(x)
-    x = layers.Activation(activation, name="stem_activation")(x)
+    if activation == "RELU6":
+        x = layers.ReLU(6.0, name="stem_activation")(x)
+    else:
+        x = layers.Activation(activation, name="stem_activation")(x)
 
     # Build blocks
     blocks_args = copy.deepcopy(blocks_args)
@@ -1001,6 +1014,10 @@ def EfficientNetV2(
 
     for i, args in enumerate(blocks_args):
         assert args["num_repeat"] > 0
+
+        # if lite, do not use squeeze and excite
+        if lite:
+            args["se_ratio"] = 0
 
         # Update block input and output filters based on depth multiplier.
         args["input_filters"] = round_filters(
@@ -1059,7 +1076,10 @@ def EfficientNetV2(
         momentum=bn_momentum,
         name="top_bn",
     )(x)
-    x = layers.Activation(activation=activation, name="top_activation")(x)
+    if activation == "RELU6":
+        x = layers.ReLU(6.0, name="top_activation")(x)
+    else:
+        x = layers.Activation(activation=activation, name="top_activation")(x)
 
     if include_top:
         x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
@@ -1104,7 +1124,8 @@ def EfficientNetV2(
             cache_subdir="models",
             file_hash=file_hash,
         )
-        model.load_weights(weights_path)
+        if not lite:
+            model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
 
@@ -1124,6 +1145,7 @@ def EfficientNetV2B0(
     classes=1000,
     classifier_activation="softmax",
     include_preprocessing=True,
+    lite=False,
 ):
     return EfficientNetV2(
         width_coefficient=1.0,
@@ -1138,6 +1160,7 @@ def EfficientNetV2B0(
         classes=classes,
         classifier_activation=classifier_activation,
         include_preprocessing=include_preprocessing,
+        lite=lite,
     )
 
 
@@ -1154,6 +1177,7 @@ def EfficientNetV2B1(
     classes=1000,
     classifier_activation="softmax",
     include_preprocessing=True,
+    lite=False,
 ):
     return EfficientNetV2(
         width_coefficient=1.0,
@@ -1168,6 +1192,7 @@ def EfficientNetV2B1(
         classes=classes,
         classifier_activation=classifier_activation,
         include_preprocessing=include_preprocessing,
+        lite=lite,
     )
 
 
@@ -1184,6 +1209,7 @@ def EfficientNetV2B2(
     classes=1000,
     classifier_activation="softmax",
     include_preprocessing=True,
+    lite=False,
 ):
     return EfficientNetV2(
         width_coefficient=1.1,
@@ -1198,6 +1224,7 @@ def EfficientNetV2B2(
         classes=classes,
         classifier_activation=classifier_activation,
         include_preprocessing=include_preprocessing,
+        lite=lite,
     )
 
 
@@ -1214,6 +1241,7 @@ def EfficientNetV2B3(
     classes=1000,
     classifier_activation="softmax",
     include_preprocessing=True,
+    lite=False,
 ):
     return EfficientNetV2(
         width_coefficient=1.2,
@@ -1228,6 +1256,7 @@ def EfficientNetV2B3(
         classes=classes,
         classifier_activation=classifier_activation,
         include_preprocessing=include_preprocessing,
+        lite=lite,
     )
 
 
@@ -1244,6 +1273,7 @@ def EfficientNetV2S(
     classes=1000,
     classifier_activation="softmax",
     include_preprocessing=True,
+    lite=False,
 ):
     return EfficientNetV2(
         width_coefficient=1.0,
@@ -1258,6 +1288,7 @@ def EfficientNetV2S(
         classes=classes,
         classifier_activation=classifier_activation,
         include_preprocessing=include_preprocessing,
+        lite=lite,
     )
 
 
@@ -1274,6 +1305,7 @@ def EfficientNetV2M(
     classes=1000,
     classifier_activation="softmax",
     include_preprocessing=True,
+    lite=False,
 ):
     return EfficientNetV2(
         width_coefficient=1.0,
@@ -1288,6 +1320,7 @@ def EfficientNetV2M(
         classes=classes,
         classifier_activation=classifier_activation,
         include_preprocessing=include_preprocessing,
+        lite=lite,
     )
 
 
@@ -1304,6 +1337,7 @@ def EfficientNetV2L(
     classes=1000,
     classifier_activation="softmax",
     include_preprocessing=True,
+    lite=False,
 ):
     return EfficientNetV2(
         width_coefficient=1.0,
@@ -1318,6 +1352,7 @@ def EfficientNetV2L(
         classes=classes,
         classifier_activation=classifier_activation,
         include_preprocessing=include_preprocessing,
+        lite=lite,
     )
 
 
