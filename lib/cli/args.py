@@ -1197,7 +1197,7 @@ class TrainArgs(FaceSwapArgs):
             type=str.lower,
             choices=["default", "central-storage", "mirrored"],
             default="default",
-            backend=("nvidia" "directml"),
+            backend=("nvidia", "directml", "rocm", "apple_silicon"),
             group=_("Global Options"),
             help=_("R|Select the distribution stategy to use."
                    "\nL|default: Use Tensorflow's default distribution strategy."
