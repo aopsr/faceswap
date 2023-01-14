@@ -626,6 +626,11 @@ def round_repeats(repeats, depth_coefficient):
     """Round number of repeats based on depth multiplier."""
     return int(math.ceil(depth_coefficient * repeats))
 
+def act(activation, name):
+    if activation == "RELU6":
+        return layers.ReLU(6.0, name=name + "activation")
+    else:
+        return layers.Activation(activation, name=name + "activation")
 
 def MBConvBlock(
     input_filters: int,
@@ -664,10 +669,7 @@ def MBConvBlock(
                 momentum=bn_momentum,
                 name=name + "expand_bn",
             )(x)
-            if activation == "RELU6":
-                x = layers.ReLU(6.0, name=name + "expand_activation")(x)
-            else:
-                x = layers.Activation(activation, name=name + "expand_activation")(x)
+            x = act(activation, name=name+"expand_")(x)
         else:
             x = inputs
 
@@ -684,10 +686,7 @@ def MBConvBlock(
         x = layers.BatchNormalization(
             axis=bn_axis, momentum=bn_momentum, name=name + "bn"
         )(x)
-        if activation == "RELU6":
-            x = layers.ReLU(6.0, name=name + "activation")(x)
-        else:
-            x = layers.Activation(activation, name=name + "activation")(x)
+        x = act(activation, name)(x)
 
         # Squeeze and excite
         if 0 < se_ratio <= 1:
@@ -703,10 +702,10 @@ def MBConvBlock(
                 filters_se,
                 1,
                 padding="same",
-                activation=activation,
                 kernel_initializer=CONV_KERNEL_INITIALIZER,
                 name=name + "se_reduce",
             )(se)
+            se = act(activation, name+"se_reduce")(se)
             se = layers.Conv2D(
                 filters,
                 1,
@@ -781,10 +780,7 @@ def FusedMBConvBlock(
             x = layers.BatchNormalization(
                 axis=bn_axis, momentum=bn_momentum, name=name + "expand_bn"
             )(x)
-            if activation == "RELU6":
-                x = layers.ReLU(6.0, name=name + "expand_activation")(x)
-            else:
-                x = layers.Activation(activation=activation, name=name + "expand_activation")(x)
+            x = act(activation, name)(x)
         else:
             x = inputs
 
@@ -803,10 +799,10 @@ def FusedMBConvBlock(
                 filters_se,
                 1,
                 padding="same",
-                activation=activation,
                 kernel_initializer=CONV_KERNEL_INITIALIZER,
                 name=name + "se_reduce",
             )(se)
+            se = act(activation, name+"se_reduce")(se)
             se = layers.Conv2D(
                 filters,
                 1,
@@ -832,10 +828,7 @@ def FusedMBConvBlock(
             axis=bn_axis, momentum=bn_momentum, name=name + "project_bn"
         )(x)
         if expand_ratio == 1:
-            if activation == "RELU6":
-                x = layers.ReLU(6.0, name=name + "project_activation")(x)
-            else:
-                x = layers.Activation(activation=activation, name=name + "project_activation")(x)
+            x = act(activation, name)(x)
 
         # Residual:
         if strides == 1 and input_filters == output_filters:
@@ -1002,10 +995,7 @@ def EfficientNetV2(
         momentum=bn_momentum,
         name="stem_bn",
     )(x)
-    if activation == "RELU6":
-        x = layers.ReLU(6.0, name="stem_activation")(x)
-    else:
-        x = layers.Activation(activation, name="stem_activation")(x)
+    x = act(activation, name="stem_")(x)
 
     # Build blocks
     blocks_args = copy.deepcopy(blocks_args)
@@ -1015,9 +1005,9 @@ def EfficientNetV2(
     for i, args in enumerate(blocks_args):
         assert args["num_repeat"] > 0
 
-        # if lite, do not use squeeze and excite
-        if lite:
-            args["se_ratio"] = 0
+        # # if lite, do not use squeeze and excite
+        # if lite:
+        #     args["se_ratio"] = 0
 
         # Update block input and output filters based on depth multiplier.
         args["input_filters"] = round_filters(
@@ -1076,10 +1066,7 @@ def EfficientNetV2(
         momentum=bn_momentum,
         name="top_bn",
     )(x)
-    if activation == "RELU6":
-        x = layers.ReLU(6.0, name="top_activation")(x)
-    else:
-        x = layers.Activation(activation=activation, name="top_activation")(x)
+    x = act(activation, "top_")(x)
 
     if include_top:
         x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
@@ -1124,8 +1111,8 @@ def EfficientNetV2(
             cache_subdir="models",
             file_hash=file_hash,
         )
-        if not lite:
-            model.load_weights(weights_path)
+        #if not lite:
+        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
 
