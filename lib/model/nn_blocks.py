@@ -454,7 +454,7 @@ class UpscaleBlock():  # pylint:disable=too-few-public-methods
                  activation: Optional[str] = "leakyrelu",
                  subpixel: Optional[int] = None,
                  **kwargs) -> None:
-        self._name = _get_name(f"upscale_{filters}")
+        self._name = kwargs.pop("name", _get_name(f"upscale_{filters}"))
         logger.debug("name: %s. filters: %s, kernel_size: %s, padding: %s, scale_factor: %s, "
                      "normalization: %s, activation: %s, kwargs: %s)",
                      self._name, filters, kernel_size, padding, scale_factor, normalization,
@@ -1065,7 +1065,7 @@ class ResidualBlock():  # pylint:disable=too-few-public-methods
                  kernel_size: Union[int, Tuple[int, int]] = 3,
                  padding: str = "same",
                  **kwargs) -> None:
-        self._name = _get_name(f"residual_{filters}")
+        self._name = kwargs.pop("name", _get_name(f"residual_{filters}"))
         logger.debug("name: %s, filters: %s, kernel_size: %s, padding: %s, kwargs: %s)",
                      self._name, filters, kernel_size, padding, kwargs)
         self._use_reflect_padding = _CONFIG["reflect_padding"]

@@ -945,7 +945,7 @@ class TrainArgs(FaceSwapArgs):
                    "the existing model.")))
         argument_list.append(dict(
             opts=("-l", "--load-weights"),
-            action=FileFullPaths,
+            action=FileFullPaths, # TOOD: allow directory for SAEHD
             filetypes="model",
             dest="load_weights",
             required=False,

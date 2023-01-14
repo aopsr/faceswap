@@ -12,6 +12,10 @@ This module handles:
 import logging
 import os
 import sys
+import pickle
+from pathlib import Path
+
+import numpy as np
 
 from typing import List, Optional, TYPE_CHECKING
 
@@ -304,8 +308,7 @@ class Weights():
         self._load_layers = load_layers if load_layers else ["encoder"]  # No plugin config
         logger.debug("Initialized %s", self.__class__.__name__)
 
-    @classmethod
-    def _check_weights_file(cls, weights_file: str) -> Optional[str]:
+    def _check_weights_file(self, weights_file: str) -> Optional[str]:
         """ Validate that we have a valid path to a .h5 file.
 
         Parameters
@@ -325,9 +328,16 @@ class Weights():
         msg = ""
         if not os.path.exists(weights_file):
             msg = f"Load weights selected, but the path '{weights_file}' does not exist."
-        elif not os.path.splitext(weights_file)[-1].lower() == ".h5":
-            msg = (f"Load weights selected, but the path '{weights_file}' is not a valid Keras "
-                   f"model (.h5) file.")
+
+        elif os.path.splitext(weights_file)[-1].lower() != ".h5":
+            if self._name == "saehd" and not (os.path.isdir(weights_file) and 
+                                            any(os.path.splitext(f)[-1].lower() == ".npy" 
+                                            for f in os.listdir(weights_file))):
+                    msg = (f"Load weights selected, but the path '{weights_file}' does not contain "
+                           f"any valid DFL model (.npy) files.")
+            else:
+                msg = (f"Load weights selected, but the path '{weights_file}' is not a valid Keras "
+                    f"model (.h5) file.")
 
         if msg:
             msg += " Please check and try again."
@@ -373,30 +383,65 @@ class Weights():
                            self._weights_file)
             return
 
-        weights_models = self._get_weights_model()
-        all_models = get_all_sub_models(self._model)
+        if self._name == "saehd":
+            files = [file for file in Path(self._weights_file).glob("*.npy")]
+            submodels = get_all_sub_models(self._model)[1:] # first element is the whole model
+            for submodel in submodels:
+                name = submodel.name
+                for file in files:
+                    if f"SAEHD_{name}" in file:
+                        d = pickle.loads(file.read_bytes())
+                        break
 
-        for model_name in self._load_layers:
-            sub_model = next((lyr for lyr in all_models if lyr.name == model_name), None)
-            sub_weights = next((lyr for lyr in weights_models if lyr.name == model_name), None)
+                layers = submodel.layers
+                encoder_dims = [128, 128, 64*8]
 
-            if not sub_model or not sub_weights:
-                msg = f"Skipping layer {model_name} as not in "
-                msg += "current_model." if not sub_model else f"weights '{self._weights_file}.'"
-                logger.warning(msg)
-                continue
+                try:
+                    for layer in layers:
+                        if len(layer.trainable_weights):
+                            names = [weight.name.replace("kernel", "weight")
+                                                .replace("face_out_", "out_conv")
+                                                .replace("mask_out_", "out_convm")
+                                                for weight in layer.trainable_weights]
+                            weights = [d.get(name, None) for name in names]
+                            if layer.__class__.__name__ == "Dense": # FIND DIMENSIONS
+                                idx = np.arange(0, ).reshape((32*8, 4, 4)).transpose((1, 2, 0)).flatten()
+                                if "dense1" in names[0]:
+                                    weights[0] = weights[0][idx, :]
+                                elif "dense2" in names[0]:
+                                    weights[0] = weights[0][:, idx] # kernel
+                                    weights[1] = weights[1][idx] # bias
+                            layer.set_weights(weights)
 
-            logger.info("Loading weights for layer '%s'", model_name)
-            skipped_ops = 0
-            loaded_ops = 0
-            for layer in sub_model.layers:
-                success = self._load_layer_weights(layer, sub_weights, model_name)
-                if success == 0:
-                    skipped_ops += 1
-                elif success == 1:
-                    loaded_ops += 1
+                except Exception as e:
+                    print(str(e))
+                    raise Exception("error loading saehd model weights")
 
-        del weights_models
+        else:
+            weights_models = self._get_weights_model()
+            all_models = get_all_sub_models(self._model)
+
+            for model_name in self._load_layers:
+                sub_model = next((lyr for lyr in all_models if lyr.name == model_name), None)
+                sub_weights = next((lyr for lyr in weights_models if lyr.name == model_name), None)
+
+                if not sub_model or not sub_weights:
+                    msg = f"Skipping layer {model_name} as not in "
+                    msg += "current_model." if not sub_model else f"weights '{self._weights_file}.'"
+                    logger.warning(msg)
+                    continue
+
+                logger.info("Loading weights for layer '%s'", model_name)
+                skipped_ops = 0
+                loaded_ops = 0
+                for layer in sub_model.layers:
+                    success = self._load_layer_weights(layer, sub_weights, model_name)
+                    if success == 0:
+                        skipped_ops += 1
+                    elif success == 1:
+                        loaded_ops += 1
+
+            del weights_models
 
         if loaded_ops == 0:
             raise FaceswapError(f"No weights were succesfully loaded from your weights file: "

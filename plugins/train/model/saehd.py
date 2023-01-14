@@ -5,16 +5,18 @@ from lib.model.nn_blocks import (
 from lib.model.normalization import LayerNormalization
 from lib.utils import get_backend
 
+from lib.model.layers import PixelShuffler
+
 from ._base import KerasModel, ModelBase
 if get_backend() == "amd":
     from keras import backend as K
     from keras.layers import (
-         Concatenate, Dense, Flatten, Input, Reshape )
+        Activation, Concatenate, Conv2D, Dense, Flatten, Input, Reshape )
 else:
     # Ignore linting errors from Tensorflow's thoroughly broken import system
     from tensorflow.keras import backend as K  # pylint:disable=import-error
     from tensorflow.keras.layers import (  # pylint:disable=import-error,no-name-in-module
-        Concatenate, Dense, Flatten, Input, Reshape )
+        Activation, Concatenate, Conv2D, Dense, Flatten, Input, Reshape )
 
 class Model(ModelBase):
     def __init__(self, *args, **kwargs):
@@ -69,8 +71,8 @@ class Model(ModelBase):
             inter = self.inter(self.ae_dims, "inter", inter_input_shape)
             inter_a, inter_b = inter(encoder_a), inter(encoder_b)
             decoder_input_shape = K.int_shape(inter_a)[1:]
-            outputs = [self.decoder(self.d_dims, "b", decoder_input_shape)(inter_b), 
-                       self.decoder(self.d_dims, "a", decoder_input_shape)(inter_a)]
+            outputs = [self.decoder(self.d_dims, "dst", decoder_input_shape)(inter_b), 
+                       self.decoder(self.d_dims, "src", decoder_input_shape)(inter_a)]
         else:
             inter_ab = self.inter(self.ae_dims, "inter_ab", inter_input_shape)
 
@@ -86,6 +88,7 @@ class Model(ModelBase):
             outputs = [decoder(inter_ab_dst), decoder(inter_ab_src)]
 
         autoencoder = KerasModel(inputs, outputs, name=self.model_name)
+
         return autoencoder
 
     def encoder(self, e_ch):
@@ -93,16 +96,16 @@ class Model(ModelBase):
         var_x = input_
 
         if self.t:
-            var_x = Conv2DBlock(e_ch, activation="leakyrelu")(var_x)
-            var_x = ResidualBlock(e_ch)(var_x)
-            var_x = Conv2DBlock(e_ch*2, activation="leakyrelu")(var_x)
-            var_x = Conv2DBlock(e_ch*4, activation="leakyrelu")(var_x)
-            var_x = Conv2DBlock(e_ch*8, activation="leakyrelu")(var_x)
-            var_x = Conv2DBlock(e_ch*8, activation="leakyrelu")(var_x)
-            var_x = ResidualBlock(e_ch*8)(var_x)
+            var_x = Conv2DBlock(e_ch, activation="leakyrelu", name="down1")(var_x)
+            var_x = ResidualBlock(e_ch, name="res1")(var_x)
+            var_x = Conv2DBlock(e_ch*2, activation="leakyrelu", name="down2")(var_x)
+            var_x = Conv2DBlock(e_ch*4, activation="leakyrelu", name="down3")(var_x)
+            var_x = Conv2DBlock(e_ch*8, activation="leakyrelu", name="down4")(var_x)
+            var_x = Conv2DBlock(e_ch*8, activation="leakyrelu", name="down5")(var_x)
+            var_x = ResidualBlock(e_ch*8, name="res5")(var_x)
         else:
             for i in range(4):
-                var_x = Conv2DBlock(e_ch*(min(2**i, 8)), activation="leakyrelu")(var_x)
+                var_x = Conv2DBlock(e_ch*(min(2**i, 8)), activation="leakyrelu", name=f"down1/downs_{i}")(var_x)
             
         var_x = Flatten()(var_x)
 
@@ -115,11 +118,11 @@ class Model(ModelBase):
         input_ = Input(shape=input_shape)
         var_x = input_
 
-        var_x = Dense(ae_ch)(var_x)
-        var_x = Dense(self.lowest_dense_res ** 2 * ae_ch * 2)(var_x)
+        var_x = Dense(ae_ch, name="dense1")(var_x)
+        var_x = Dense(self.lowest_dense_res ** 2 * ae_ch * 2, name="dense2")(var_x)
         var_x = Reshape((self.lowest_dense_res, self.lowest_dense_res, ae_ch * 2))(var_x)
         if not self.t:
-            var_x = UpscaleBlock(ae_ch*2, activation="leakyrelu")(var_x)
+            var_x = UpscaleBlock(ae_ch*2, activation="leakyrelu", name="upscale1")(var_x)
         
         return KerasModel(input_, var_x, name=name)
     
@@ -128,43 +131,45 @@ class Model(ModelBase):
         var_x = input_
         
         if self.t:
-            var_x = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_x)
-            var_x = ResidualBlock(d_ch*8)(var_x)
-            var_x = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_x)
-            var_x = ResidualBlock(d_ch*8)(var_x)
-            var_x = UpscaleBlock(d_ch*4, activation="leakyrelu")(var_x)
-            var_x = ResidualBlock(d_ch*4)(var_x)
-            var_x = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_x)
-            var_x = ResidualBlock(d_ch*2)(var_x)
+            var_x = UpscaleBlock(d_ch*8, activation="leakyrelu", name="upscale0")(var_x)
+            var_x = ResidualBlock(d_ch*8, name="res0")(var_x)
+            var_x = UpscaleBlock(d_ch*8, activation="leakyrelu", name="upscale1")(var_x)
+            var_x = ResidualBlock(d_ch*8, name="res1")(var_x)
+            var_x = UpscaleBlock(d_ch*4, activation="leakyrelu", name="upscale2")(var_x)
+            var_x = ResidualBlock(d_ch*4, name="res2")(var_x)
+            var_x = UpscaleBlock(d_ch*2, activation="leakyrelu", name="upscale3")(var_x)
+            var_x = ResidualBlock(d_ch*2, name="res3")(var_x)
 
             if self.learn_mask:
                 var_y = input_
-                var_y = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_y)
-                var_y = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_y)
-                var_y = UpscaleBlock(d_ch*4, activation="leakyrelu")(var_y)
-                var_y = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_y)
+                var_y = UpscaleBlock(d_ch*8, activation="leakyrelu", name="upscalem0")(var_y)
+                var_y = UpscaleBlock(d_ch*8, activation="leakyrelu", name="upscalem1")(var_y)
+                var_y = UpscaleBlock(d_ch*4, activation="leakyrelu", name="upscalem2")(var_y)
+                var_y = UpscaleBlock(d_ch*2, activation="leakyrelu", name="upscalem3")(var_y)
 
         else:
-            var_x = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_x)
-            var_x = ResidualBlock(d_ch*8)(var_x)
-            var_x = UpscaleBlock(d_ch*4, activation="leakyrelu")(var_x)
-            var_x = ResidualBlock(d_ch*4)(var_x)
-            var_x = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_x)
-            var_x = ResidualBlock(d_ch*2)(var_x)
+            var_x = UpscaleBlock(d_ch*8, activation="leakyrelu", name="upscale0")(var_x)
+            var_x = ResidualBlock(d_ch*8, name="res0")(var_x)
+            var_x = UpscaleBlock(d_ch*4, activation="leakyrelu", name="upscale1")(var_x)
+            var_x = ResidualBlock(d_ch*4, name="res1")(var_x)
+            var_x = UpscaleBlock(d_ch*2, activation="leakyrelu", name="upscale2")(var_x)
+            var_x = ResidualBlock(d_ch*2, name="res2")(var_x)
 
             if self.learn_mask:
                 var_y = input_
-                var_y = UpscaleBlock(d_ch*8, activation="leakyrelu")(var_y)
-                var_y = UpscaleBlock(d_ch*4, activation="leakyrelu")(var_y)
-                var_y = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_y)
+                var_y = UpscaleBlock(d_ch*8, activation="leakyrelu", name="upscalem0")(var_y)
+                var_y = UpscaleBlock(d_ch*4, activation="leakyrelu", name="upscalem1")(var_y)
+                var_y = UpscaleBlock(d_ch*2, activation="leakyrelu", name="upscalem2")(var_y)
         
         if self.d:
-            var_x = UpscaleBlock(d_ch*2, activation="leakyrelu")(var_x)
+            var_x = Conv2D(filters=12, kernel_size=1, name="out_conv")(var_x)
+            var_x = PixelShuffler(name=f"out_conv_pixelshuffler", size=(2, 2))(var_x)
+            var_x = Activation("sigmoid", dtype="float32", name="face_out_" + name)(var_x)
             
             if self.learn_mask:
                 var_y = UpscaleBlock(d_ch, activation="leakyrelu")(var_y)
-        
-        var_x = Conv2DOutput(filters = 3, kernel_size = 1, 
+        else:
+            var_x = Conv2DOutput(filters = 3, kernel_size = 1, 
                             name="face_out_" + name, dtype="float32")(var_x)
         
         outputs = [var_x]
