@@ -60,7 +60,7 @@ class MaskArgs(FaceSwapArgs):
             type=str.lower,
             choices=[mask for mask in PluginLoader.get_available_extractors("mask")
                      if mask not in ("components", "extended")],
-            default="extended",
+            default="bisenet-fp",
             group=_("process"),
             help=_("R|Masker to use."
                    "\nL|bisenet-fp: Relatively lightweight NN based mask that provides more "

@@ -56,6 +56,7 @@ class AlignmentsArgs(FaceSwapArgs):
             type=str,
             choices=("draw", "extract", "from-faces", "missing-alignments", "missing-frames",
                      "multi-faces", "no-faces", "remove-faces", "rename", "sort", "spatial", "remove-masks"),
+            default="extract",
             group=_("processing"),
             required=True,
             help=_("R|Choose which action you want to perform. NB: All actions require an "
