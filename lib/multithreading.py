@@ -92,7 +92,7 @@ class FSThread(threading.Thread):
     def run(self) -> None:
         """ Runs the target, reraising any errors from within the thread in the caller. """
         try:
-            if self._target:
+            if self._target is not None:
                 self._target(*self._args, **self._kwargs)
         except Exception as err:  # pylint: disable=broad-except
             self.err = sys.exc_info()
@@ -206,7 +206,10 @@ class MultiThread():
         return retval
 
     def join(self) -> None:
-        """ Join the running threads, catching and re-raising any errors """
+        """ Join the running threads, catching and re-raising any errors
+
+        Clear the list of threads for class instance re-use
+        """
         logger.debug("Joining Threads: '%s'", self._name)
         for thread in self._threads:
             logger.debug("Joining Thread: '%s'", thread._name)  # pylint: disable=protected-access
@@ -215,6 +218,8 @@ class MultiThread():
                 logger.error("Caught exception in thread: '%s'",
                              thread._name)  # pylint: disable=protected-access
                 raise thread.err[1].with_traceback(thread.err[2])
+        del self._threads
+        self._threads = []
         logger.debug("Joined all Threads: '%s'", self._name)
 
 

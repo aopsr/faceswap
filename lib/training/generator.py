@@ -7,7 +7,7 @@ import sys
 from concurrent import futures
 
 from random import shuffle, choice
-from typing import cast, Dict, Generator, List, Tuple, TYPE_CHECKING, Union
+from typing import cast, Dict, Generator, List, Tuple, TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -28,11 +28,11 @@ else:
     from typing import get_args, Literal
 
 if TYPE_CHECKING:
+    from lib.config import ConfigValueType
     from plugins.train.model._base import ModelBase
     from .cache import _Cache
 
 logger = logging.getLogger(__name__)
-ConfigType = Dict[str, Union[bool, int, float, str]]  # TODO Dataclass
 BatchType = Tuple[np.ndarray, List[np.ndarray]]
 
 
@@ -58,7 +58,7 @@ class DataGenerator():
         objects of this size from the iterator.
     """
     def __init__(self,
-                 config: ConfigType,
+                 config: Dict[str, "ConfigValueType"],
                  model: "ModelBase",
                  side: Literal["a", "b"],
                  images: List[str],
@@ -101,7 +101,8 @@ class DataGenerator():
                                           self._config["penalized_mask_loss"]):
             channels += 1
 
-        mults = [area for area in ["eye", "mouth"] if int(self._config[f"{area}_multiplier"]) > 1]
+        mults = [area for area in ["eye", "mouth"]
+                 if cast(int, self._config[f"{area}_multiplier"]) > 1]
         if self._config["penalized_mask_loss"] and mults:
             channels += len(mults)
         return channels
@@ -420,7 +421,7 @@ class TrainingDataGenerator(DataGenerator):  # pylint:disable=too-few-public-met
         objects of this size from the iterator.
     """
     def __init__(self,
-                 config: ConfigType,
+                 config: Dict[str, "ConfigValueType"],
                  model: "ModelBase",
                  side: Literal["a", "b"],
                  images: List[str],
@@ -827,7 +828,7 @@ class PreviewDataGenerator(DataGenerator):
         Returns
         -------
         feed: :class:`numpy.ndarray`
-            List of 4-dimensional :class:`numpy.ndarray` objects at model input size for feeding
+            List of 4-dimensional :class:`numpy.ndarray` objects at model output size for feeding
             the model's predict function. The first 3 channels are (rgb/bgr). The 4th channel is
             the face mask.
         samples: list
@@ -848,6 +849,13 @@ class PreviewDataGenerator(DataGenerator):
             batch = np.concatenate([batch, mask], axis=-1)
 
         feed = self._to_float32(batch[..., :4])  # Don't resize here: we want masks at output res.
+
+        # If user sets model input size as larger than output size, the preview will error, so
+        # resize in these rare instances
+        out_size = max(self._output_sizes)
+        if self._process_size > out_size:
+            feed = np.array([cv2.resize(img, (out_size, out_size), interpolation=cv2.INTER_AREA)
+                             for img in feed])
 
         samples = self._create_samples(images, detected_faces)
 
