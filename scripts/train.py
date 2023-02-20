@@ -197,8 +197,8 @@ class Train():  # pylint:disable=too-few-public-methods
                                     f"the training folder '{training_folder}'")
 
         TKey = Literal["input_a", "input_b", "output"]
-        kwargs = {cast(TKey, "input_a"): self._args.timelapse_input_a,
-                  cast(TKey, "input_b"): self._args.timelapse_input_b,
+        kwargs = {cast(TKey, "input_a"): self._args.input_a, #self._args.timelapse_input_a,
+                  cast(TKey, "input_b"): self._args.input_b, #._args.timelapse_input_b,
                   cast(TKey, "output"): timelapse_output}
         logger.debug("Timelapse enabled: %s", kwargs)
         return kwargs
