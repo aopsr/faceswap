@@ -24,6 +24,7 @@ else:
 if TYPE_CHECKING:
     from lib.align.alignments import PNGHeaderAlignmentsDict, PNGHeaderDict
     from lib.config import ConfigValueType
+    from lib.config import ConfigValueType
 
 logger = logging.getLogger(__name__)
 

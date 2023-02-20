@@ -22,13 +22,16 @@ from tensorflow.python.framework import (  # pylint:disable=no-name-in-module
     errors_impl as tf_errors)
 
 from lib.image import hex_to_rgb
+from lib.image import hex_to_rgb
 from lib.training import PreviewDataGenerator, TrainingDataGenerator
+from lib.training.generator import BatchType, DataGenerator
 from lib.training.generator import BatchType, DataGenerator
 from lib.utils import FaceswapError, get_backend, get_folder, get_image_paths, get_tf_version
 from plugins.train._config import Config
 
 if TYPE_CHECKING:
     from plugins.train.model._base import ModelBase
+    from lib.config import ConfigValueType
     from lib.config import ConfigValueType
 
 if sys.version_info < (3, 8):
@@ -117,6 +120,9 @@ class TrainerBase():
         assert isinstance(num_images, int)
         self._timelapse = _Timelapse(self._model,
                                      self._model.coverage_ratio,
+                                     num_images,
+                                     cast(int, self._config["mask_opacity"]),
+                                     cast(str, self._config["mask_color"]),
                                      num_images,
                                      cast(int, self._config["mask_opacity"]),
                                      cast(str, self._config["mask_color"]),
