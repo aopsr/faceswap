@@ -6,6 +6,7 @@ import logging
 import re
 import os
 import sys
+import copy
 from threading import Event
 from time import sleep
 from typing import Callable, cast, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
@@ -87,6 +88,7 @@ class Convert():  # pylint:disable=too-few-public-methods
     def __init__(self, arguments: "Namespace") -> None:
         logger.debug("Initializing %s: (args: %s)", self.__class__.__name__, arguments)
         self._args = arguments
+        self._args.output_dir2 = self._args.output_dir
         self.batch_mode = self._args.batch_mode
 
         if self.batch_mode:
@@ -105,16 +107,17 @@ class Convert():  # pylint:disable=too-few-public-methods
     
     def load_var(self, i: int) -> None:
         if self.batch_mode:
+            self._args = copy.deepcopy(self._args2)
             self._args.input_dir = self._files[i]
             if self._args.writer not in ("ffmpeg", "gif"): # output as frames
-                self._args.output_dir2 = (os.path.join(self._args.output_dir, os.path.normpath(self._args.input_dir) + "_converted") 
+                self._args.output_dir = (os.path.join(self._args.output_dir2, os.path.normpath(self._args.input_dir) + "_converted") 
                                             if os.path.isdir(self._args.input_dir) 
                                             else os.path.splitext(os.path.normpath(self._args.input_dir))[0] + "_converted")
             else:
-                self._args.output_dir2 = self._args.output_dir
+                self._args.output_dir = self._args.output_dir2
             logger.info("Processing job %s of %s: '%s'", i + 1, len(self._files), self._args.input_dir)
         else:
-            self._args.output_dir2 = self._args.output_dir
+            self._args.output_dir = self._args.output_dir2
 
         self._images = ImagesLoader(self._args.input_dir, fast_count=True)
         self._alignments = Alignments(self._args, False, self._images.is_video)
@@ -126,22 +129,28 @@ class Convert():  # pylint:disable=too-few-public-methods
 
         self._opts = OptionalActions(self._args, self._images.file_list, self._alignments)
 
-        self._add_queues()
+        if i == 0:
+            self._add_queues()
+        else:
+            del self._disk_io
+            del self._patch_threads
         self._disk_io = DiskIO(self._alignments, self._images, self._args)
-        self._predictor = Predict(self._disk_io.load_queue, self._queue_size, self._args)
+        if i == 0:
+            self._predictor = Predict(self._disk_io.load_queue, self._queue_size, self._args)
         self._validate()
-        get_folder(self._args.output_dir2)
+        get_folder(self._args.output_dir)
 
         configfile = self._args.configfile if hasattr(self._args, "configfile") else None
-        self._converter = Converter(self._predictor.output_size,
-                                    self._predictor.coverage_ratio,
-                                    self._predictor.centering,
-                                    self._predictor.max_scale,
-                                    self._images.is_video,
-                                    self._disk_io.draw_transparent,
-                                    self._disk_io.pre_encode,
-                                    self._args,
-                                    configfile=configfile)
+        if i == 0:
+            self._converter = Converter(self._predictor.output_size,
+                                        self._predictor.coverage_ratio,
+                                        self._predictor.centering,
+                                        self._predictor.max_scale,
+                                        self._images.is_video,
+                                        self._disk_io.draw_transparent,
+                                        self._disk_io.pre_encode,
+                                        self._args,
+                                        configfile=configfile)
         self._patch_threads = self._get_threads()
         logger.debug("Initialized %s", self.__class__.__name__)
 
