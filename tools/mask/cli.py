@@ -31,10 +31,12 @@ class MaskArgs(FaceSwapArgs):
             action=FileFullPaths,
             type=str,
             group=_("data"),
-            required=True,
+            required=False,
             filetypes="alignments",
-            help=_("Full path to the alignments file to add the mask to. NB: if the mask already "
-                   "exists in the alignments file it will be overwritten.")))
+            help=_("Full path to the alignments file to add the mask to if not at the default "
+                   "location. NB: If the input-type is faces and you wish to update the "
+                   "corresponding alignments file, then you must provide a value here as the "
+                   "location cannot be automatically detected.")))
         argument_list.append(dict(
             opts=("-i", "--input"),
             action=DirOrFileFullPaths,
@@ -54,6 +56,22 @@ class MaskArgs(FaceSwapArgs):
             help=_("R|Whether the `input` is a folder of faces or a folder frames/video"
                    "\nL|faces: The input is a folder containing extracted faces."
                    "\nL|frames: The input is a folder containing frames or is a video")))
+        argument_list.append(dict(
+            opts=("-B", "--batch-mode"),
+            action="store_true",
+            dest="batch_mode",
+            default=False,
+            group=_("data"),
+            help=_("R|Run the mask tool on multiple sources. If selected then the other options "
+                   "should be set as follows:"
+                   "\nL|input: A parent folder containing either all of the video files to be "
+                   "processed, or containing sub-folders of frames/faces."
+                   "\nL|output-folder: If provided, then sub-folders will be created within the "
+                   "given location to hold the previews for each input."
+                   "\nL|alignments: Alignments field will be ignored for batch processing. The "
+                   "alignments files must exist at the default location (for frames). For batch "
+                   "processing of masks with 'faces' as the input type, then only the PNG header "
+                   "within the extracted faces will be updated.")))
         argument_list.append(dict(
             opts=("-M", "--masker"),
             action=Radio,
