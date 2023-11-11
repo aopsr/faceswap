@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """ Tool to generate masks and previews of masks for existing alignments file """
+from __future__ import annotations
 import logging
 import os
 import sys
+import typing as T
+
 from argparse import Namespace
 from multiprocessing import Process
-from typing import cast, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import cv2
 import numpy as np
@@ -18,7 +20,7 @@ from lib.multithreading import MultiThread
 from lib.utils import get_folder, _video_extensions
 from plugins.extract.pipeline import Extractor, ExtractMedia
 
-if TYPE_CHECKING:
+if T.TYPE_CHECKING:
     from lib.align.aligned_face import CenteringType
     from lib.align.alignments import AlignmentFileDict, PNGHeaderDict
     from lib.queue_manager import EventQueue
@@ -45,7 +47,7 @@ class Mask():  # pylint:disable=too-few-public-methods
         self._args = arguments
         self._input_locations = self._get_input_locations()
 
-    def _get_input_locations(self) -> List[str]:
+    def _get_input_locations(self) -> list[str]:
         """ Obtain the full path to input locations. Will be a list of locations if batch mode is
         selected, or containing a single location if batch mode is not selected.
 
@@ -56,6 +58,10 @@ class Mask():  # pylint:disable=too-few-public-methods
         """
         if not self._args.batch_mode:
             return [self._args.input]
+
+        if not os.path.isdir(self._args.input):
+            logger.error("Batch mode is selected but input '%s' is not a folder", self._args.input)
+            sys.exit(1)
 
         retval = [os.path.join(self._args.input, fname)
                   for fname in os.listdir(self._args.input)
@@ -156,7 +162,7 @@ class _Mask():  # pylint:disable=too-few-public-methods
         self._saver = self._set_saver(arguments)
         loader = FacesLoader if self._input_is_faces else ImagesLoader
         self._loader = loader(arguments.input)
-        self._faces_saver: Optional[ImagesSaver] = None
+        self._faces_saver: ImagesSaver | None = None
 
         self._alignments = self._get_alignments(arguments)
         self._extractor = self._get_extractor(arguments.exclude_gpus)
@@ -182,7 +188,7 @@ class _Mask():  # pylint:disable=too-few-public-methods
             sys.exit(0)
         logger.debug("input '%s' is valid", mask_input)
 
-    def _set_saver(self, arguments: Namespace) -> Optional[ImagesSaver]:
+    def _set_saver(self, arguments: Namespace) -> ImagesSaver | None:
         """ set the saver in a background thread
 
         Parameters
@@ -208,7 +214,7 @@ class _Mask():  # pylint:disable=too-few-public-methods
         logger.debug(saver)
         return saver
 
-    def _get_alignments(self, arguments: Namespace) -> Optional[Alignments]:
+    def _get_alignments(self, arguments: Namespace) -> Alignments | None:
         """ Obtain the alignments from either the given alignments location or the default
         location.
 
@@ -246,7 +252,7 @@ class _Mask():  # pylint:disable=too-few-public-methods
 
         return Alignments(folder, filename=filename)
 
-    def _get_extractor(self, exclude_gpus: List[int]) -> Optional[Extractor]:
+    def _get_extractor(self, exclude_gpus: list[int]) -> Extractor | None:
         """ Obtain a Mask extractor plugin and launch it
         Parameters
         ----------
@@ -307,7 +313,7 @@ class _Mask():  # pylint:disable=too-few-public-methods
     def _process_face(self,
                       filename: str,
                       image: np.ndarray,
-                      metadata: "PNGHeaderDict") -> Optional["ExtractMedia"]:
+                      metadata: PNGHeaderDict) -> ExtractMedia | None:
         """ Process a single face when masking from face images
 
         filename: str
@@ -328,7 +334,7 @@ class _Mask():  # pylint:disable=too-few-public-methods
 
         if self._alignments is None:  # mask from PNG header
             lookup_index = 0
-            alignments = [cast("AlignmentFileDict", metadata["alignments"])]
+            alignments = [T.cast("AlignmentFileDict", metadata["alignments"])]
         else:  # mask from Alignments file
             lookup_index = face_index
             alignments = self._alignments.get_faces_in_frame(frame_name)
@@ -354,7 +360,7 @@ class _Mask():  # pylint:disable=too-few-public-methods
         self._counts["update"] += 1
         return media
 
-    def _input_faces(self, *args: Union[tuple, Tuple["EventQueue"]]) -> None:
+    def _input_faces(self, *args: tuple | tuple[EventQueue]) -> None:
         """ Input pre-aligned faces to the Extractor plugin inside a thread
 
         Parameters
@@ -366,7 +372,7 @@ class _Mask():  # pylint:disable=too-few-public-methods
         log_once = False
         logger.debug("args: %s", args)
         if self._update_type != "output":
-            queue = cast("EventQueue", args[0])
+            queue = T.cast("EventQueue", args[0])
         for filename, image, metadata in tqdm(self._loader.load(), total=self._loader.count):
             if not metadata:  # Legacy faces. Update the headers
                 if self._alignments is None:
@@ -398,7 +404,7 @@ class _Mask():  # pylint:disable=too-few-public-methods
         if self._update_type != "output":
             queue.put("EOF")
 
-    def _input_frames(self, *args: Union[tuple, Tuple["EventQueue"]]) -> None:
+    def _input_frames(self, *args: tuple | tuple[EventQueue]) -> None:
         """ Input frames to the Extractor plugin inside a thread
 
         Parameters
@@ -410,7 +416,7 @@ class _Mask():  # pylint:disable=too-few-public-methods
         assert self._alignments is not None
         logger.debug("args: %s", args)
         if self._update_type != "output":
-            queue = cast("EventQueue", args[0])
+            queue = T.cast("EventQueue", args[0])
         for filename, image in tqdm(self._loader.load(), total=self._loader.count):
             frame = os.path.basename(filename)
             if not self._alignments.frame_exists(frame):
@@ -446,7 +452,7 @@ class _Mask():  # pylint:disable=too-few-public-methods
         if self._update_type != "output":
             queue.put("EOF")
 
-    def _check_for_missing(self, frame: str, idx: int, alignment: "AlignmentFileDict") -> bool:
+    def _check_for_missing(self, frame: str, idx: int, alignment: AlignmentFileDict) -> bool:
         """ Check if the alignment is missing the requested mask_type
 
         Parameters
@@ -490,7 +496,7 @@ class _Mask():  # pylint:disable=too-few-public-methods
         return sfx
 
     @classmethod
-    def _get_detected_face(cls, alignment: "AlignmentFileDict") -> DetectedFace:
+    def _get_detected_face(cls, alignment: AlignmentFileDict) -> DetectedFace:
         """ Convert an alignment dict item to a detected_face object
 
         Parameters
@@ -564,8 +570,8 @@ class _Mask():  # pylint:disable=too-few-public-methods
             if self._alignments is not None:
                 self._alignments.update_face(frame_name, face_index, face.to_alignment())
 
-            metadata: "PNGHeaderDict" = dict(alignments=face.to_png_meta(),
-                                             source=extractor_output.frame_metadata)
+            metadata: PNGHeaderDict = {"alignments": face.to_png_meta(),
+                                       "source": extractor_output.frame_metadata}
             self._faces_saver.save(extractor_output.filename,
                                    encode_image(extractor_output.image, ".png", metadata=metadata))
 
@@ -655,9 +661,9 @@ class _Mask():  # pylint:disable=too-few-public-methods
                                    size=detected_face.image.shape[0],
                                    is_aligned=True).face
             else:
-                centering: "CenteringType" = ("legacy" if self._alignments is not None and
-                                              self._alignments.version == 1.0
-                                              else mask.stored_centering)
+                centering: CenteringType = ("legacy" if self._alignments is not None and
+                                            self._alignments.version == 1.0
+                                            else mask.stored_centering)
                 detected_face.load_aligned(detected_face.image, centering=centering, force=True)
                 face = detected_face.aligned.face
             assert face is not None

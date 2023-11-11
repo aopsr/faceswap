@@ -19,7 +19,7 @@ stats module
 
 .. autosummary::
    :nosignatures:
-   
+
    ~lib.gui.analysis.stats.Calculations
    ~lib.gui.analysis.stats.GlobalSession
    ~lib.gui.analysis.stats.SessionsSummary
@@ -47,7 +47,7 @@ custom\_widgets module
 
 .. autosummary::
    :nosignatures:
-   
+
    ~lib.gui.custom_widgets.ConsoleOut
    ~lib.gui.custom_widgets.ContextMenu
    ~lib.gui.custom_widgets.MultiOption
@@ -77,7 +77,7 @@ display\_analysis module
 
 .. autosummary::
    :nosignatures:
-   
+
    ~lib.gui.display_analysis.Analysis
    ~lib.gui.display_analysis.StatsData
 
@@ -104,6 +104,13 @@ display\_graph module
    :undoc-members:
    :show-inheritance:
 
+menu module
+===========
+.. automodule:: lib.gui.menu
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 popup_configure module
 ======================
 .. automodule:: lib.gui.popup_configure
@@ -125,7 +132,7 @@ project module
 
 .. autosummary::
    :nosignatures:
-   
+
    ~lib.gui.project.LastSession
    ~lib.gui.project.Project
    ~lib.gui.project.Tasks
@@ -192,6 +199,16 @@ utils package
 .. rubric:: misc Module
 
 .. automodule:: lib.gui.utils.misc
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+wrapper module
+==============
+
+.. rubric:: Module
+
+.. automodule:: lib.gui.wrapper
    :members:
    :undoc-members:
    :show-inheritance:
