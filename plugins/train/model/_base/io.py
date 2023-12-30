@@ -208,7 +208,16 @@ class IO():
                              self._save_optimizer == "always" or
                              (self._save_optimizer == "exit" and is_exit))
 
-        self._plugin.model.save(self._filename, include_optimizer=include_optimizer)
+        print(include_optimizer)
+        try:
+            self._plugin.model.save(self._filename, include_optimizer=include_optimizer)
+        except ValueError as err:
+            if include_optimizer and "name already exists" in str(err):
+                logger.warning("Due to a bug in older versions of Tensorflow, optimizer state "
+                               "cannot be saved for this model.")
+                self._plugin.model.save(self._filename, include_optimizer=False)
+            else:
+                raise
         self._plugin.state.save()
 
         msg = "[Saved optimizer state for Snapshot]" if force_save_optimizer else "[Saved models]"
