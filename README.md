@@ -2,6 +2,8 @@
 
 [<img src="https://img.shields.io/discord/1059728184414834688?label=discord&style=for-the-badge&logo=discord&color=5865F2&logoColor=white">](https://discord.gg/mDDbHc7Dus)
 
+(March 2026 update) For the most advanced AI generation tools and skills, join us at [aimagine.dev](https://aimagine.dev).
+
 <font size="3"> Faceswap++ is an improved superset of Faceswap and DeepFaceLab. </font>
 
 This is an experiment-focused repo aimed at developing better deepfaking techniques. All new features are personally conceived, implemented, and tested. Faceswap++ will continue to be in sync with upstream and maintain backwards compatibility, in general.
